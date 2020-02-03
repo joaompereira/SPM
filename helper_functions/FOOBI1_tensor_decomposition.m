@@ -1,7 +1,15 @@
-function F = FOOBI1_tensor_decomposition(T, L, R, eigtol)
+function F = FOOBI1_tensor_decomposition(T, L, R, options)
 % Returns rank decomposition of order 4 symmetric tensors using FOOBI1
 
-% Tolerance for choosing rank using eigenvalues
+%% Set options here
+if ~exist('opts', 'var') || isempty(opts)
+    options = struct();
+end
+
+% Tolerance for choosing rank using eigenvalues 
+eigtol = setordefault(options, 'eigtol', 1e-3);
+
+
 if ~exist('eigtol','var') || isempty(eigtol)
     eigtol = 1e-3;
 end
@@ -70,7 +78,7 @@ for i=1:R
 end
 
 % Perform simultaneous diagonalization using Jacobi rotations
-[Q, ~] = simultaneous_diagonalization(W);
+[Q, ~] = simultaneous_diagonalization(W, options);
 
 A = H * Q;
 
@@ -86,30 +94,35 @@ end
 
 end
 
-function [Q, W] = simultaneous_diagonalization(W)
+function [Q, W] = simultaneous_diagonalization(W, options)
 % Find simultaneous diagonaling orthogonal matrix Q with Jacobi iterations
+
+% Maximum number of Jacobi Iterations for simoultaneous diagonalization
+maxtries = setordefault(options, 'maxtries', 1000);
+
+% Tolerance for Jacobi rotation 
+Jtol = setordefault(options, 'Jtol', 1e-14);
 
 % W is a set of K LxL matrices
 [L, L2, K] = size(W);
 
-tol = eps;
-
 assert(L2 == L, 'Matrix not symmetric')
 
 % Start with a good initialization for the orthogonal matrix
-[Q, ~] = eig2(sum(W.*rand(1,1,K),3));
+[Q, ~] = eig2(sum(W.*randn(1,1,K),3));
 
 % Rotate matrices in W accordingly
 for k=1:K
     W(:,:,k) = Q' * W(:,:,k) * Q;
 end
 
-s=1;
-
 % Perform Jacobi iterations using formula in: JF Cardoso, A Souloumiac,
 %  'Jacobi Angles For Simultaneous Diagonalization', 
 %   Stop condition: the rotation angle is almost 0 (|sin x| = |s| < tol)
-while abs(s) > tol
+
+R = eye(L);
+
+for tries=1:maxtries
   
     off = triu(vecnorm(W,2,3),1);
     
@@ -136,8 +149,11 @@ while abs(s) > tol
     c = sqrt(v(1)/2+.5);
     s = v(2)/sqrt(2*(v(1)+1));
     
+    if abs(s) < Jtol
+      break
+    end
+    
     % R is the Jacobi rotation
-    R = eye(L);
     R([i j],[i j]) = [c -s; s c];
 
     % Perform Jacobi rotation to matrices W
@@ -146,6 +162,8 @@ while abs(s) > tol
     end
 
     Q = Q * R;
+    
+    R([i j],[i j]) = [1 0; 0 1];
 
 end
 

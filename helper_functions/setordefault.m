@@ -1,4 +1,4 @@
-function value = setdefault(options, field, default_value)
+function value = setordefault(options, field, default_value)
 % Merge input options with local defaults
 
   if isfield(options,field)
