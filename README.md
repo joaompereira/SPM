@@ -22,7 +22,8 @@ of the FOOBI algorithm, from [**Fourth-Order Cumulant-Based Blind Identification
 of Underdetermined Mixtures**](https://ieeexplore.ieee.org/document/4203062),
 for which we did not find a MATLAB implementation,
 and implemented ourselves. If you need assistance setting this up, you can
-send an e-mail to [**joao.pereira@utexas.edu**](mailto:joao.pereira@utexas.edu)
+send an e-mail to [**joao.pereira@utexas.edu**](mailto:joao.pereira@utexas.edu).
+A README for the installation of other packages may also be added in the future.
 
 ##### External tensor packages
 
