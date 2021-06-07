@@ -1,4 +1,4 @@
-function [A, Lambda, stat] = subspace_power_method_general(T, L, n, R, K, options)
+function [A, W, stat] = subspace_power_method_general(T, L, n, R, K, varargin)
 % Decompose symmetric even order tensor using generalized subspace power method
 %   ** Usage **
 %       [A, W, stat] = subspace_power_method_general(T, L, n, R, K, options)
@@ -36,35 +36,42 @@ function [A, Lambda, stat] = subspace_power_method_general(T, L, n, R, K, option
 %
 %   NOTE : Make sure 'helper_functions/' are added to path
 
-    if ~exist('L','var') || isempty(L)
-        L = size(T,1);
-    end
-    
+% Reference:
+% J. Kileel, J. M. Pereira, Subspace power method for symmetric tensor
+%                           decomposition and generalized PCA
+% https://github.com/joaompereira/SPM
+% 
+% version 1.1 (06/07/2021) - MIT License
 
-    if ~exist('n','var') || isempty(n)
-        n = round(log(numel(T))/log(L));
-    end
-    
+    if nargin<2 || isempty(L); L = size(T,1); end
+    if nargin<3 || isempty(n); n = round(log(numel(T))/log(L)); end
+    if nargin<4; R = []; end
+    if nargin<5; K = []; end
+       
     n2 = n/2;
     d = L^n2;
     
     assert(mod(n,2)==0 && n > 0,'n is not even an even positive integer');
     
-    if exist('K','var') && ~isempty(K)
-        assert(mod(R,nchoosek(K+n2-1,n2))==0);
+    if ~isempty(K)
+        assert(~isempty(R) && mod(R,nchoosek(K+n2-1,n2))==0);
     end
     
-    %% Set options here
-    if ~exist('options', 'var') || isempty(options)
-        options = struct();
+    %% Set options here   
+    try
+        [maxiter, ntries, gradtol, eigtol, eigtol2, ftol] = ...
+            option_parser(varargin, {'maxiter',  2000, @(x) x>0},...
+                                    { 'ntries',     3, @(x) x>0},...
+                                    {'gradtol', 1e-14, @(x) x>0},...
+                                    { 'eigtol',  1e-8, @(x) x>0},...
+                                    {'eigtol2',  1e-3, @(x) x>0},...
+                                    {   'ftol',  1e-2/sqrt(L), @(x) x>0});
+    catch ME
+        if strcmp(ME.identifier,'MATLAB:UndefinedFunction')
+            warning('Did you add ''helper_functions'' to the MATLAB path?');
+        end
+        rethrow(ME)
     end
-
-    maxiter = setordefault(options,'maxiter', 2000);
-     ntries = setordefault(options, 'ntries', 3);
-    gradtol = setordefault(options,'gradtol', 1e-14);
-     eigtol = setordefault(options, 'eigtol', 1e-8);
-    eigtol2 = setordefault(options,'eigtol2', 1e-3);
-       ftol = setordefault(options,   'ftol', 1e-2/sqrt(L));
     
     timer = tic;
 
@@ -78,40 +85,19 @@ function [A, Lambda, stat] = subspace_power_method_general(T, L, n, R, K, option
     % mat(T), which has L^(2d) entries, we calculate an equivalent eigen
     % decomposition of a matrix with roughly (L^d/d!)^2 entries, this way 
     % getting a speed up of approximately (d!)^3.
+    
+    [symind, findsym, symindscale] = symmetric_indices(L, n2);
 
-    % Number of rows and columns of new matrix
-    dsym = nchoosek(L+n2-1,n2);
-
-    % Different indices without permutations
-    symind = nchoosek(1:L+n2-1,n2)-(0:n2-1);
-    symind = symind(:,end:-1:1);
-    symindscale = zeros(dsym,1);
-
-    % Map from all indices to indices without permutations
-    findsym = zeros(ones(1,n2)*L);
-    findsymscale = zeros(ones(1,n2)*L);
-
-    for i=1:dsym
-        % Scaling to keep have the same dot product in the new space
-        scale = sqrt(nperm(symind(i,:)));
-        symindscale(i) = scale;
-        scale = 1/scale;
-        for j = perms(1:n2)'
-            commalist = num2cell(symind(i,j));
-            findsym(commalist{:}) = i;
-            findsymscale(commalist{:}) = scale;
-        end
-    end
-
+    symindscale = sqrt(symindscale);
     findsym = reshape(findsym,[],1);
-    findsymscale = reshape(findsymscale,[],1);
+    findsymscale = 1./symindscale(findsym);
     symind = (symind-1)*(L.^(0:n2-1)')+1;
     %%
     % Eigen decomposition
     [symV, D] = eig2(symindscale.*T(symind,symind).*symindscale');
 
     % Determine tensor rank by the eigenvalues of mat(T)
-    if ~exist('R','var') || isempty(R)
+    if isempty(R)
         R = sum(abs(D) > eigtol);
     end
 
@@ -134,6 +120,7 @@ function [A, Lambda, stat] = subspace_power_method_general(T, L, n, R, K, option
     stat.powertime = 0;
     stat.deflatetime = 0;
     stat.avgiter = 0;
+    stat.nrr = 0;
 
     while R > 0
       
@@ -191,9 +178,11 @@ function [A, Lambda, stat] = subspace_power_method_general(T, L, n, R, K, option
           if 1-f<eigtol
              break
           elseif tries==1 || f>f_
+              stat.nrr = stat.nrr + 1;
               f_ = f;
               Ak_ = Ak;
           else
+              stat.nrr = stat.nrr + 1;
               Ak = Ak_;
           end
 
@@ -215,7 +204,7 @@ function [A, Lambda, stat] = subspace_power_method_general(T, L, n, R, K, option
         % Using formula (D.3)
         [Ker, KerD] = eig2(eye(L)/n2+((n2-1)/n2)*(Ak*Ak') - VAk*VAk');
 
-        if exist('K','var') && ~isempty(K)
+        if ~isempty(K)
             KerR = K;
         else
             KerR = max(sum(KerD < eigtol2),1);
@@ -223,20 +212,31 @@ function [A, Lambda, stat] = subspace_power_method_general(T, L, n, R, K, option
 
         Ker = Ker(:,L-KerR+1:L);
 
-        % Kerpow has all tensor products of columns of Ker
-        Kerpow = Ker;
-        for i=2:n2
-            Kerpow = kron(Kerpow, Ker);
+        [symind, findsym, scale] = symmetric_indices(KerR, n2);
+        nR = size(symind,1);
+        scale = sqrt(scale);
+        Kerpow = Ker(:,symind(:,1)) .* scale';
+        for j=2:n2
+            Kerpow = khatri_rao_product(Kerpow, Ker(:,symind(:,j)), nR);
         end
+        Kerpow = symmetrize_tensor(Kerpow, L, n2);
+        nU = (Kerpow'*V)';
+        
+
+        % Kerpow has all tensor products of columns of Ker
+        %Kerpow = Ker;
+        %for i=2:n2
+        %    Kerpow = kron(Kerpow, Ker);
+        %end
 
         % Obtain a orthonormal basis for the projection of the columns of
         % Kerpow in V
-        [nU,nS,nV] = svd(V'*Kerpow);
+        %[nU,nS,nV] = svd(V'*Kerpow);
 
-        nR = nchoosek(KerR+n2-1,n2);
+        %nR = nchoosek(KerR+n2-1,n2);
 
-        nU = nU(:,1:nR);
-        nV = nV(:,1:nR);
+        %nU = nU(:,1:nR);
+        %nV = nV(:,1:nR);
 
         % W is given by Lemma ___
         D1nU = D1*nU;
@@ -245,7 +245,11 @@ function [A, Lambda, stat] = subspace_power_method_general(T, L, n, R, K, option
         %WV = inv(WV1);
 
         A{genrank} = Ker;
-        Lambda{genrank} = reshape(nV*(nV/WV1)',KerR*ones(1,n));
+        findsym = findsym(:);
+        findsymscale = reshape(scale(findsym),[],1);
+        iWV1 = inv(WV1);
+        W_flat = iWV1(findsym,findsym)./(findsymscale.*findsymscale');
+        W{genrank} = reshape(W_flat, KerR*ones(1,n));
 
         R = R - nR;
         
@@ -253,16 +257,16 @@ function [A, Lambda, stat] = subspace_power_method_general(T, L, n, R, K, option
         if R > 0
             genrank = genrank + 1;
             
-            % Due to MATLAB's efficient implementation of matrix
-            % multiplication, it is faster to multiply directly by V2 than
-            % applying Householder reflections
-            [Q,~] = qr(D1nU);
-            V2 = Q(:,nR+1:end);
+            % See hh_preprocess (below) for more info
+            % on Householder reflection implementation
+            [X, Xt] = hh_preprocess(D1nU);
+            Xt = Xt(:, nR+1:nR+R);
             
-            % Using formulas in Appendix B                       
-            D1 = V2'*D1*V2;
+            % Using formulas in Appendix B          
+            D1 = D1(:, nR+1:nR+R) - (D1 * X) * Xt;
+            D1 = D1(nR+1:nR+R, :) - Xt' * (X' * D1);
             
-            V = V*V2;
+            V = V(:, nR+1:nR+R) - (V * X) * Xt;
 
         end
         
@@ -278,6 +282,39 @@ function [A, Lambda, stat] = subspace_power_method_general(T, L, n, R, K, option
 
 end
 
+function AB = khatri_rao_product(A, B, k)
 
+if nargin< 3 || isempty(k)
+    k = size(A, 2);
+end
+
+AB = reshape(A, [], 1, k) .* reshape(B, 1, [], k);
+AB = reshape(AB, [], k);
+
+end
+
+function [X, Xt] = hh_preprocess(Y)
+
+    opts.UT = true;
+    
+    [M, N] = size(Y);
+    % The lower bottom of qr gives the coefficients
+    % for the householder reflection
+    X = tril(qr(Y), -1);
+    % Add ones in the diagonal of X
+    X(1+(0:N-1)*(M+1)) = 1;
+    
+    T = X'*X;
+    % Divide the diagonal of T by 2
+    T(1+(0:N-1)*(N+1)) = diag(T)/2;
+    Xt = linsolve(T, X', opts);%T \ X';
+    
+    % Now to build the orthogonal matrix one can use
+    % the formula Q = eye(M) - X * T^(-1) * X
+    %               = eye(M) - X * Xt
+    % However if multiplying and M > N,
+    % then is faster to use the formulas
+    %      AQ = A - (A * X) * Xt
+    %  or  QA = A - X * (Xt * A)
   
-
+end

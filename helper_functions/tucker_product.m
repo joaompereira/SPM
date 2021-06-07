@@ -14,8 +14,9 @@ if n==1
 else
     [L, K] = size(M);
     
-    % If T is a collection of tensors, we can apply symmetric multilinear
-    % multiplication to all tensors at once
+    % If T is a collection of tensors, this algorithm calculates the 
+    % symmetric tucker product of all tensors by M, just need that the
+    % the last dimension is the number of tensors
     L2 = numel(T)/K^n;
     
     % Replace M by transpose

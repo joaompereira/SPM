@@ -1,28 +1,19 @@
-function F = FOOBI1_tensor_decomposition(T, L, R, options)
+function F = FOOBI1_tensor_decomposition(T, L, R, varargin)
 % Returns rank decomposition of order 4 symmetric tensors using FOOBI1
 
 %% Set options here
-if ~exist('opts', 'var') || isempty(opts)
-    options = struct();
-end
-
 % Tolerance for choosing rank using eigenvalues 
-eigtol = setordefault(options, 'eigtol', 1e-3);
+[eigtol, sd_options] = option_parser(varargin,{ 'eigtol', 1e-8, @(x) x>0},...
+                                              {'sd_options', struct(), @isstruct});
 
-
-if ~exist('eigtol','var') || isempty(eigtol)
-    eigtol = 1e-3;
-end
-
-if ~exist('L','var') || isempty(L)
-    L = size(T,1);
-end
+if nargin<2 || isempty(L); L = size(T,1); end
+if nargin<3; R = []; end
 
 % Flatten T and compute eigenvectors
 % This is more stable than Cholesky decomposition if T is noisy
 [V,D] = eig2(reshape(T,L^2,L^2));
 
-if ~exist('R','var') || isempty(R)
+if isempty(R)
     R = find(D>eigtol,1,'last');
 end
 
@@ -78,7 +69,7 @@ for i=1:R
 end
 
 % Perform simultaneous diagonalization using Jacobi rotations
-[Q, ~] = simultaneous_diagonalization(W, options);
+[Q, ~] = simultaneous_diagonalization(W, sd_options);
 
 A = H * Q;
 
@@ -94,14 +85,17 @@ end
 
 end
 
-function [Q, W] = simultaneous_diagonalization(W, options)
+function [Q, W] = simultaneous_diagonalization(W, varargin)
 % Find simultaneous diagonaling orthogonal matrix Q with Jacobi iterations
 
-% Maximum number of Jacobi Iterations for simoultaneous diagonalization
-maxtries = setordefault(options, 'maxtries', 1000);
+% maxtries: Maximum number of Jacobi Iterations
+%           for simoultaneous diagonalization
+% Jtol: Tolerance for Jacobi rotation 
+[maxtries, Jtol] = ...
+    option_parser(varargin,{'maxtries', 1000, @(x) x>0},...
+                           { 'Jtol' ,  1e-14, @(x) x>0});
 
-% Tolerance for Jacobi rotation 
-Jtol = setordefault(options, 'Jtol', 1e-14);
+
 
 % W is a set of K LxL matrices
 [L, L2, K] = size(W);

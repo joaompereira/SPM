@@ -11,6 +11,7 @@ shortfields = {'n',
                'deftime';
                'tottime';
                'avgit';
+               'nrr';
                '  error   '};
 
 fields = {'n',
@@ -21,6 +22,7 @@ fields = {'n',
           'deflatetime';
           'totaltime';
           'avgiter';
+          'nrr';
           'error'};
 
 nfields = length(fields);
@@ -41,7 +43,7 @@ A_true = A_true./vecnorm(A_true);
 lambda_true = randn(1,R);
 
 % Generate tensor
-T = generate_lowrank_tensor(A_true, n, lambda_true);
+T = generate_lowrank_tensor(A_true, lambda_true, n);
 
 % Get rank decomposition
 [A_est, lambda_est, stat_] = subspace_power_method(T, L, n);
@@ -64,7 +66,7 @@ A_true = A_true./vecnorm(A_true);
 lambda_true = randn(1,R);
 
 % Generate tensor
-T = generate_lowrank_tensor(A_true, n, lambda_true);
+T = generate_lowrank_tensor(A_true, lambda_true, n);
 
 % Get rank decomposition
 [A_est, lambda_est, stat_] = subspace_power_method(T, L, n);
@@ -94,7 +96,7 @@ A_true = A_true./vecnorm(A_true);
 lambda_true = randn(1,R);
 
 % Generate tensor
-T = generate_lowrank_tensor(A_true, n, lambda_true);
+T = generate_lowrank_tensor(A_true, lambda_true, n);
 
 % Get rank decomposition
 [A_est, lambda_est, stat_] = subspace_power_method(T, L, n);
@@ -124,7 +126,7 @@ A_true = A_true./vecnorm(A_true);
 lambda_true = randn(1,R);
 
 % Generate tensor
-T = generate_lowrank_tensor(A_true, n, lambda_true);
+T = generate_lowrank_tensor(A_true, lambda_true, n);
 
 % Get rank decomposition
 [A_est, lambda_est, stat_] = subspace_power_method(T, L, n);
@@ -144,7 +146,7 @@ row = row+1;
 fprintf('\b%d', row);
 
 % Tensor characteristics 
-L = 45;     % Length
+L = 60;     % Length
 R = 400;    % Rank
 n = 4;      % Order
 
@@ -154,7 +156,7 @@ A_true = A_true./vecnorm(A_true);
 lambda_true = randn(1,R);
 
 % Generate tensor
-T = generate_lowrank_tensor(A_true, n, lambda_true);
+T = generate_lowrank_tensor(A_true, lambda_true, n);
 
 % Get rank decomposition
 [A_est, lambda_est, stat_] = subspace_power_method(T, L, n);
@@ -168,6 +170,68 @@ stat_.R = R;
 stat_.n = n;
 
 stat(row) = stat_;
+
+%% ROW 4 %%
+row = row+1;
+fprintf('\b%d', row);
+
+% Tensor characteristics 
+L = 80;     % Length
+R = 400;    % Rank
+n = 4;      % Order
+
+% Generate true rank decomposition
+A_true = randn(L,R);
+A_true = A_true./vecnorm(A_true);
+lambda_true = randn(1,R);
+
+% Generate tensor
+T = generate_lowrank_tensor(A_true, lambda_true, n);
+
+% Get rank decomposition
+[A_est, lambda_est, stat_] = subspace_power_method(T, L, n);
+
+% Calculate decomposition error
+stat_.error = rderror(A_est, A_true, lambda_est, lambda_true, n);
+
+% Collect more stats
+stat_.L = L;
+stat_.R = R;
+stat_.n = n;
+
+stat(row) = stat_;
+
+%% New ROW 5a %%
+row = row+1;
+fprintf('\b%d', row);
+
+% Tensor characteristics 
+L = 40;     % Length
+R = 200;    % Rank
+n = 4;      % Order
+
+% Generate true rank decomposition
+A_true = randn(L,R) + ones(L,R);
+A_true = A_true./vecnorm(A_true);
+lambda_true = randn(1,R);
+
+% Generate tensor
+T = generate_lowrank_tensor(A_true, lambda_true, n);
+
+% Get rank decomposition
+[A_est, lambda_est, stat_] = subspace_power_method(T, L, n);
+
+% Calculate decomposition error
+stat_.error = rderror(A_est, A_true, lambda_est, lambda_true, n);
+
+% Collect more stats
+stat_.L = L;
+stat_.R = R;
+stat_.n = n;
+
+stat(row) = stat_;
+
+
 
 %% ROW 5 %%
 row = row+1;
@@ -184,7 +248,7 @@ A_true = A_true./vecnorm(A_true);
 lambda_true = randn(1,R);
 
 % Generate tensor
-T = generate_lowrank_tensor(A_true, n, lambda_true);
+T = generate_lowrank_tensor(A_true, lambda_true, n);
 
 % Get rank decomposition
 [A_est, lambda_est, stat_] = subspace_power_method(T, L, n);
@@ -198,6 +262,7 @@ stat_.R = R;
 stat_.n = n;
 
 stat(row) = stat_;
+
 
 %% ROW 6 %%
 row = row+1;
@@ -253,7 +318,7 @@ A_true = A_true./vecnorm(A_true);
 lambda_true = randn(1,R);
 
 % Generate tensor
-T = generate_lowrank_tensor(A_true, n, lambda_true);
+T = generate_lowrank_tensor(A_true, lambda_true, n);
 
 % Get rank decomposition
 [A_est, lambda_est, stat_] = subspace_power_method(T, L, n);
@@ -308,23 +373,26 @@ stat(row) = stat_;
 
 %% Show Table
 
+% Print header
 nrows = row;
-fprintf('\b\b\b\b\b\n    ');
+fprintf('\n\n     ');
 for j=1:nfields
     fprintf('|%s', shortfields{j});
 end
 fprintf('|\n');
 
-
+% Print rest of the table
 for i=1:nrows
-    fprintf(' |T%d|%d|%2d|%3d',i, stat(i).n, stat(i).L, stat(i).R);
+    
+    fprintf(' |T%-2d|%1d|%2d|%3d',i, stat(i).n, stat(i).L, stat(i).R);
     for j=4:7
         fprintf('| %5.2f ', stat(i).(fields{j}))
     end
     fprintf('| %3.0f ',stat(i).(fields{8}));
-    fprintf('| %1.2e |\n',stat(i).(fields{9}));
+    fprintf('|%3d',stat(i).(fields{9}));
+    fprintf('| %1.2e |\n',stat(i).(fields{10}));
 end
 
 %% Save results
 clear T % T is cleared since it occupies a lot of space
-save results/testrd_table.mat
+%save results/testrd_table.mat

@@ -1,9 +1,9 @@
-function [A, lambda, stat] = subspace_power_method(T, L, n, R, options)
+function [A, lambda, stat] = subspace_power_method(T, L, n, R, varargin)
 % Decompose symmetric even order tensor using subspace power method
 %   ** Usage **
-%       X = subspace_power_method(T, L, n, R)
-%       [X, lambda] = subspace_power_method(T, L, n, R)
-%       [X, lambda, stat] = subspace_power_method(T, L, n, R)
+%       X = subspace_power_method(T, L, n, R, opts)
+%       [X, lambda] = subspace_power_method(T, L, n, R, opts)
+%       [X, lambda, stat] = subspace_power_method(T, L, n, R, opts)
 %
 %   ** INPUT **
 %        T: Tensor of dimension L^n
@@ -13,7 +13,8 @@ function [A, lambda, stat] = subspace_power_method(T, L, n, R, options)
 %           correct shape)
 %        R: Tensor rank (optional, it can be estimated using the 
 %           eigenvalues of mat(T))
-%     opts: Struct with various SPM options, such as
+%     opts: Various SPM options, given as a struct or Parameter/Value pairs
+%           Options include
 %            ntries: Maximum number of iterations of power method
 %           gradtol: Gradient tolerance (the power method finishes if the
 %                    norm of the gradient is smaller than this value)
@@ -35,17 +36,17 @@ function [A, lambda, stat] = subspace_power_method(T, L, n, R, options)
 %
 %   NOTE : Make sure 'helper_functions/' are added to path
 
-    if ~exist('L','var') || isempty(L)
-        L = size(T,1);
-    end
-    
-    if exist('K','var') && ~isempty(K)
-        assert(mod(R,K)==0);
-    end
+% Reference:
+% J. Kileel, J. M. Pereira, Subspace power method for symmetric tensor
+%                           decomposition and generalized PCA
+% https://github.com/joaompereira/SPM
+% 
+% version 1.1 (06/07/2021) - MIT License
 
-    if ~exist('n','var') || isempty(n)
-        n = round(log(numel(T))/log(L));
-    end
+
+    if nargin<2 || isempty(L); L = size(T,1); end
+    if nargin<3 || isempty(n); n = round(log(numel(T))/log(L)); end
+    if nargin<4; R = []; end
     
     n2 = n/2;
     d = L^n2;
@@ -53,16 +54,21 @@ function [A, lambda, stat] = subspace_power_method(T, L, n, R, options)
     assert(mod(n,2)==0 && n > 0,'n is not even an even positive integer');
 
     %% Set options here
-    if ~exist('options', 'var') || isempty(options)
-        options = struct();
+    try
+        [maxiter, ntries, gradtol, eigtol, ftol] = ...
+            option_parser(varargin, {'maxiter', 5000, @(x) x>0},...
+                                    { 'ntries', 3, @(x) x>0},...
+                                    {'gradtol', 1e-14, @(x) x>0},...
+                                    { 'eigtol', 1e-8, @(x) x>0},...
+                                    {   'ftol', 1e-2/sqrt(L), @(x) x>0});
+    catch ME
+        if strcmp(ME.identifier,'MATLAB:UndefinedFunction')
+            warning('Did you add ''helper_functions'' to the MATLAB path?');
+        end
+        rethrow(ME)
     end
-    
-    maxiter = setordefault(options,'maxiter', 2000);
-     ntries = setordefault(options, 'ntries', 3);
-    gradtol = setordefault(options,'gradtol', 1e-14);
-     eigtol = setordefault(options, 'eigtol', 1e-6);
-       ftol = setordefault(options,   'ftol', 1e-2/sqrt(L));
-       
+        
+                                
     timer = tic;
 
     % Flatten T
@@ -76,39 +82,19 @@ function [A, lambda, stat] = subspace_power_method(T, L, n, R, options)
     % decomposition of a matrix with roughly (L^d/d!)^2 entries, this way 
     % getting a speed up of approximately (d!)^3.
 
-    % Number of rows and columns of new matrix
-    dsym = nchoosek(L+n2-1,n2);
+    
+    [symind, findsym, symindscale] = symmetric_indices(L, n2);
 
-    % Different indices without permutations
-    symind = nchoosek(1:L+n2-1,n2)-(0:n2-1);
-    symind = symind(:,end:-1:1);
-    symindscale = zeros(dsym,1);
-
-    % Map from all indices to indices without permutations
-    findsym = zeros(ones(1,n2)*L);
-    findsymscale = zeros(ones(1,n2)*L);
-
-    for i=1:dsym
-        % Scaling to keep have the same dot product in the new space
-        scale = sqrt(nperm(symind(i,:)));
-        symindscale(i) = scale;
-        scale = 1/scale;
-        for j = perms(1:n2)'
-            commalist = num2cell(symind(i,j));
-            findsym(commalist{:}) = i;
-            findsymscale(commalist{:}) = scale;
-        end
-    end
-
+    symindscale = sqrt(symindscale);
     findsym = reshape(findsym,[],1);
-    findsymscale = reshape(findsymscale,[],1);
+    findsymscale = 1./symindscale(findsym);
     symind = (symind-1)*(L.^(0:n2-1)')+1;
     %%
     % Eigen decomposition
     [symV, D] = eig2(symindscale.*T(symind,symind).*symindscale');
 
     % Determine tensor rank by the eigenvalues of mat(T)
-    if ~exist('R','var') || isempty(R)
+    if isempty(R)
         R = sum(abs(D) > eigtol);
     end
     
@@ -134,6 +120,7 @@ function [A, lambda, stat] = subspace_power_method(T, L, n, R, options)
     stat.powertime = 0;
     stat.deflatetime = 0;
     stat.avgiter = 0;
+    stat.nrr = 0;
 
     for k = R:-1:1
             
@@ -191,9 +178,11 @@ function [A, lambda, stat] = subspace_power_method(T, L, n, R, options)
           if 1-f<eigtol
              break
           elseif tries==1 || f>f_
+              stat.nrr = stat.nrr + 1;
               f_ = f;
               Ak_ = Ak;
           else
+              stat.nrr = stat.nrr + 1;
               Ak = Ak_;
           end
           
@@ -230,7 +219,7 @@ function [A, lambda, stat] = subspace_power_method(T, L, n, R, options)
 
             
             % Use Householder reflection to update V and D
-            y = (sign(D1alpha(1))/norm(D1alpha))*D1alpha;
+            y = (sign(D1alpha(k))/norm(D1alpha))*D1alpha;
             xk = sqrt(1+y(k));
             x = [y(1:k-1)/xk;xk];
             
@@ -265,7 +254,3 @@ function A_ =  RHR(A,x)
 A_ = A(:,1:end-1) + (A*(-x))*x(1:end-1)';
 
 end
-
-
-
-

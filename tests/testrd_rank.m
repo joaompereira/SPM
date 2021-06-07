@@ -1,18 +1,18 @@
-clear all
+clearvars
 clc
 addpath '../'
 addpath '../helper_functions/'
 
 % L and R values
-Lval = 10:40;
-Rval = 8:8:800;
+Lval = 10:12;%10:40;
+Rval = 8:1:72;%8:8:800;
 nL = length(Lval);
 nR = length(Rval);
 
 % Number of tries for each algorithm
 % Some algorithms have more variable running times, so we run them more
 % times to produce smoother results
-ntries = 10;
+ntries = 25;
 
 % Time of execution and estimate error for different algorithms and (L,R)
 % values
@@ -48,9 +48,10 @@ for i=1:nL
             % Use SPM to get rank decomposition
             A_est = subspace_power_method(T, L, 4);
             
-            error = rderror(A_est, A_true, 4);
+            diffT = T - generate_lowrank_tensor(A_est, 4);
+            error = norm(diffT(:));
             
-            freqij(tries) = error<1e-4;
+            freqij(tries) = error<1e-6;
             
         end
         
@@ -62,28 +63,30 @@ for i=1:nL
 end
 
 % Save results
-clear T % T is cleared since it occupies a lot of space
-save results/testrd_rank.mat
+clear T diffT % T is cleared since it occupies a lot of space
+save results/testrd_rank_.mat
 
-% Plot results
-hf = figure(1);
-colormap(linspace(0,1,11)'*[1,1,1])
-hs = imagesc(Lval,Rval,freq');
-xlabel('$L$','Interpreter','latex');
-ylabel('$R$','Interpreter','latex');
-set(gca,'YDir','normal');
-hold on
-plot(Lval,Lval.*(Lval-1)/2,'r','LineWidth',1);
-plot(Lval,Lval.*(Lval-3)/2,'b--','LineWidth',1);
-hl = legend({'$R=\frac{L(L-1)}{2}$','$R=\frac{L(L-3)}{2}$'},...
-        'Interpreter','latex','Location','northwest','FontSize',12);
+if ispc
+    % Plot results
+    hf = figure(1);
+    colormap(linspace(0,1,11)'*[1,1,1])
+    hs = imagesc(Lval,Rval,freq');
+    xlabel('$L$','Interpreter','latex');
+    ylabel('$R$','Interpreter','latex');
+    set(gca,'YDir','normal');
+    hold on
+    plot(Lval,Lval.*(Lval-1)/2,'r','LineWidth',1);
+    plot(Lval,Lval.*(Lval-3)/2,'b--','LineWidth',1);
+    hl = legend({'$R=\frac{L(L-1)}{2}$','$R=\frac{L(L-3)}{2}$'},...
+            'Interpreter','latex','Location','northwest','FontSize',12);
 
-ylim([8,800])
-    
-NewHeight = hl.Position(4) * 1.5;
-hl.Position(2) = hl.Position(2) - (NewHeight - hl.Position(4));
-hl.Position(4) = NewHeight;
+    ylim([8,800])
 
-colorbar
-    
-pdfprint('results/testrd_rank', hf);
+    NewHeight = hl.Position(4) * 1.5;
+    hl.Position(2) = hl.Position(2) - (NewHeight - hl.Position(4));
+    hl.Position(4) = NewHeight;
+
+    colorbar
+
+    pdfprint('results/testrd_rank_', hf);
+end

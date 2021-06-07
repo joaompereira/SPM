@@ -1,13 +1,18 @@
-function [M] = generate_lowrank_tensor(X, n, lambda)
+function [M] = generate_lowrank_tensor(X, varargin)
 
 [L, R] = size(X);
+
+if nargin<3
+  lambda = ones(1, R);
+  n = varargin{1};
+else
+  lambda = varargin{1};
+  n = varargin{2};
+end
+
 n2 = floor(n/2);
 
 assert(n==abs(round(n-1))+1,'Are you positive n is a positive integer?');
-
-if nargin<3
-  lambda = ones(1,R);
-end
 
 if n==1
   M = sum(X,2);
@@ -23,9 +28,9 @@ end
 
 % Speed up calculation using matrix multiplication
 if mod(n,2)
-    M = khatri_rao_product(Xpow,X)*(lambda.*Xpow)';
+    M = khatri_rao_product(Xpow,X)*(lambda.*Xpow).';
 else
-    M = Xpow*(lambda.*Xpow)';
+    M = Xpow*(lambda.*Xpow).';
 end
 
 M = reshape(M,L*ones(1,n));

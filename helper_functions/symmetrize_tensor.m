@@ -1,7 +1,7 @@
 function [SymT] = symmetrize_tensor(M, L, n)
 % Implementation of the symmetrizing operator
 
-if ~exist('L','var') || isempty(L) || ~exist('n','var') || isempty(n)
+if nargin<3 || isempty(L) || isempty(n)
     n = length(size(M));
     L = size(M,1);
     assert(all(L==size(M)),'M not a symmetric tensor');

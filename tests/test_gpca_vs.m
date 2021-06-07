@@ -29,8 +29,8 @@ X = reshape(X,K,[]);
 s = s(:);
 
 Algs = {'SPM', @(X,k,n) gpca_SPM(X,k,n);
-        %'PDA', @(X,k,n) gpca_PDA(X,n,size(X,1)-k);
-        %'GPCA-V', @(X,k,n) gpca_voting(X, k*ones(1,n) ,'postoptimization',true);
+        'PDA', @(X,k,n) gpca_PDA(X,n,size(X,1)-k);
+        'GPCA-V', @(X,k,n) gpca_voting(X, k*ones(1,n) ,'postoptimization',true);
         };
 
 nalgs = size(Algs,1);

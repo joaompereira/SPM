@@ -2,17 +2,18 @@ clear all
 clc
 addpath '../'
 addpath '../helper_functions/'
+addpath '../other_packages/'
 %addpath(genpath('../other_packages/'))
 
 % L and R values
-L = 15;
-R = floor(L^2/3);
+L = 10;
+R = 20;
 
 % Different Algorithms
 % The tensor order has to be 4 for FOOBI to work
 Algs = {'FOOBI1',@(T,L,R) FOOBI1_tensor_decomposition(T, L, R);...
         'SPM' ,@(T,L,R) subspace_power_method(T, L, 4, R);...
-        %'TensorLab' ,@(T,L,R) tensorlab_ccpd_nls(T,L,4,R);...  
+        'TensorLab' ,@(T,L,R) tensorlab_ccpd_nls(T,L,4,R);...  
         };
 
 nalgs = size(Algs,1);
@@ -23,7 +24,7 @@ nvals = length(noise);
 % Number of tries for each algorithm
 % Some algorithms have more variable running times, so we run them more
 % times to produce smoother results
-ntries = [5,5,5];
+ntries = [3,3,3,3];
 
 % True rank decomposition
 A_true = randn(L,R);
@@ -37,7 +38,7 @@ time = NaN(nalgs,nvals);
 error = NaN(nalgs,nvals);
 
 s = "-";
-for i = 2:45
+for i = 2:9+12*nalgs
   s = s + "-";
 end
 
@@ -78,8 +79,8 @@ for j=1:nvals
         end
         
         % Log Average over all runs
-        time(i,j) = mean(timeij(errorij<1e-1));
-        error(i,j) = mean(errorij(errorij<1e-1));
+        time(i,j) = mean(timeij);
+        error(i,j) = mean(errorij);
         
         fprintf(' %1.3e |',error(i,j));
 
@@ -97,6 +98,6 @@ fprintf('\n%s\n',s)
 
 % Save results
 clear T T_clean % T is cleared since it occupies a lot of space
-save results/testrd_noise.mat
+save results/testrd_noise_.mat
 
 
