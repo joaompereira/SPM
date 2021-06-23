@@ -1,4 +1,4 @@
-function groups = gpca_SPM(X, k, n)
+function [groups, S] = gpca_SPM(X, k, n)
 
 [L, K] = size(X);
 d  = 4;
