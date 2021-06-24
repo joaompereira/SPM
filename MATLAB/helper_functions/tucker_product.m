@@ -1,9 +1,9 @@
-function T = tucker_product(M,T,n)
+function T = tucker_product(M, T, n)
 % Returns symmetric multilinear multiplication of T by M
 
 if nargin<3 || isempty(n)
-    n = length(size(M));
-    if n==2 && any(size(M)==1)
+    n = length(size(T));
+    if n==2 && any(size(T)==1)
         n = 1;
     end 
 end
