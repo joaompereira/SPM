@@ -8,7 +8,7 @@ J. Kileel, J. M. Pereira,
 decomposition and generalized PCA**](
 https://arxiv.org/abs/1912.04007), arXiv:1912.04007
 
-## Installation
+## Installation - Matlab
 
 To install you just need to add
 `current_path\` and `current_path\helper_functions\` to the MATLAB path
