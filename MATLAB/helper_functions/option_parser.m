@@ -1,4 +1,4 @@
-function varargout = option_parser(user_options, varargin)
+function opts = option_parser(user_options, varargin)
 % Merge input options with local defaults
   
   n = length(varargin);
@@ -9,9 +9,8 @@ function varargout = option_parser(user_options, varargin)
   end
   parse(iP,user_options{:});
   
-  varargout = cell(1,n);
   for i=1:length(varargin)
-      varargout{i} = iP.Results.(varargin{i}{1});
+      opts.(varargin{i}{1}) = iP.Results.(varargin{i}{1});
   end
   
 end

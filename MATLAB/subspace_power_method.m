@@ -1,4 +1,4 @@
-function [A, lambda, stat] = subspace_power_method(T, L, n, R, varargin)
+function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
 % Decompose symmetric even order tensor using subspace power method
 %   ** Usage **
 %       X = subspace_power_method(T, L, n, R, opts)
@@ -48,31 +48,43 @@ function [A, lambda, stat] = subspace_power_method(T, L, n, R, varargin)
     if nargin<3 || isempty(n); n = round(log(numel(T))/log(L)); end
     if nargin<4; R = []; end
     
-    n2 = n/2;
+    n2 = ceil(n/2);
     d = L^n2;
     
-    assert(mod(n,2)==0 && n > 0,'n is not even an even positive integer');
+    assert(n > 2);
 
     %% Set options here
     try
-        [maxiter, ntries, gradtol, eigtol, ftol] = ...
-            option_parser(varargin, {'maxiter', 5000, @(x) x>0},...
-                                    { 'ntries', 3, @(x) x>0},...
-                                    {'gradtol', 1e-14, @(x) x>0},...
-                                    { 'eigtol', 1e-8, @(x) x>0},...
-                                    {   'ftol', 1e-2/sqrt(L), @(x) x>0});
+        opts = option_parser(varargin, {'maxiter', 5000, @(x) x>0},...
+                                       { 'ntries', 3, @(x) x>0},...
+                                       {'gradtol', 1e-14, @(x) x>0},...
+                                       { 'eigtol', 1e-8, @(x) x>0},...
+                                       {   'ftol', 1e-2/sqrt(L), @(x) x>0});
     catch ME
         if strcmp(ME.identifier,'MATLAB:UndefinedFunction')
-            warning('Did you add ''helper_functions'' to the MATLAB path?');
-        end
-        rethrow(ME)
+            warning("%s\n%s","It appears ''.\helper_functions\''",...
+                             "was not added to the MATLAB path.");
+            answer = questdlg("Add ''.\helper_functions\'' to path?");
+            if answer=="Yes"
+                fullfile = mfilename('fullpath');
+                filepath = fileparts(fullfile);
+                addpath(filepath + "/helper_functions/")
+                [A, varargout{1:nargout-1}] = subspace_power_method(T, L, n, R, varargin{:});
+                return
+            else
+                rethrow(ME)
+            end
+                
+        else
+            rethrow(ME)
+        end    
     end
         
                                 
     timer = tic;
 
     % Flatten T
-    T = reshape(T,d,d);
+    T = reshape(T,d,[]);
 
     %%
     % In this block of code we exploit the fact that each column and row of   
@@ -82,39 +94,69 @@ function [A, lambda, stat] = subspace_power_method(T, L, n, R, varargin)
     % decomposition of a matrix with roughly (L^d/d!)^2 entries, this way 
     % getting a speed up of approximately (d!)^3.
 
-    
-    [symind, findsym, symindscale] = symmetric_indices(L, n2);
+    if mod(n,2)
+        [symind_l, findsym_l, symindscale_l] = symmetric_indices(L, n2);
+        [symind_r, findsym_r, symindscale_r] = symmetric_indices(L, n2-1);
+        
+        symindscale_l = sqrt(symindscale_l);
+        symindscale_r = sqrt(symindscale_r);
+        findsym_l = reshape(findsym_l,[],1);
+        findsym_r = reshape(findsym_r,[],1);
+        symind_l = (symind_l-1)*(L.^(0:n2-1)')+1;
+        symind_r = (symind_r-1)*(L.^(0:n2-2)')+1;
+        
+        [symV, D, symU] = svd(symindscale_l.*T(symind_l,symind_r).*...
+                              symindscale_r', 'econ');
+        D = diag(D);
+        
+        % Determine tensor rank by the eigenvalues of mat(T)
+        if isempty(R)
+            R = sum(abs(D) > opts.eigtol);
+        end
+        
+        D1 = diag(1./D(1:R));
 
-    symindscale = sqrt(symindscale);
-    findsym = reshape(findsym,[],1);
-    findsymscale = 1./symindscale(findsym);
-    symind = (symind-1)*(L.^(0:n2-1)')+1;
-    %%
-    % Eigen decomposition
-    [symV, D] = eig2(symindscale.*T(symind,symind).*symindscale');
+        V = symV(:,1:R)./symindscale_l;
+        V = V(findsym_l, :);
+        
+        U = symU(:,1:R)./symindscale_r;
+        U = U(findsym_r, :);
+        
+        
+    else
+        [symind, findsym, symindscale] = symmetric_indices(L, n2);
 
-    % Determine tensor rank by the eigenvalues of mat(T)
-    if isempty(R)
-        R = sum(abs(D) > eigtol);
+        symindscale = sqrt(symindscale);
+        findsym = reshape(findsym,[],1);
+        symind = (symind-1)*(L.^(0:n2-1)')+1;
+        %%
+        % Eigen decomposition
+        [symV, D] = eig2(symindscale.*T(symind,symind).*symindscale');
+
+        % Determine tensor rank by the eigenvalues of mat(T)
+        if isempty(R)
+            R = sum(abs(D) > opts.eigtol);
+        end
+
+        D1 = diag(1./D(1:R));
+
+        V = symV(:,1:R)./symindscale;
+        V = V(findsym, :);
     end
-    
-    D1 = diag(1./D(1:R));
 
-    V = findsymscale.*symV(findsym,1:R);
-    
     % Pre-allocation of X and lambda
     A = zeros(L,R);
     if nargout>1
         lambda = zeros(1,R);
     end
-    
+
     % C_n from Lemma 4.7
     if n2<=4
       cn = sqrt(2*(n2-1)/n2);
     else
       cn = (2-sqrt(2))*sqrt(n2);
     end
-    
+
     lap = toc(timer);
     stat.extracttime = lap;
     stat.powertime = 0;
@@ -126,13 +168,13 @@ function [A, lambda, stat] = subspace_power_method(T, L, n, R, varargin)
             
         V_ = reshape(V,[],L*k);
 
-        for tries = 1:ntries
+        for tries = 1:opts.ntries
           
           % Initialize Xk
           Ak = randn(L,1);
           Ak = Ak/norm(Ak);
         
-          for iter = 1:maxiter
+          for iter = 1:opts.maxiter
 
             % Calculate power of Xk
             Apow = Ak;
@@ -153,7 +195,7 @@ function [A, lambda, stat] = subspace_power_method(T, L, n, R, varargin)
             clambda = sqrt(f_*(1-f_));
             shift = cn*clambda;
 
-            if f < ftol
+            if f < opts.ftol
                 % Xk was not a good initialization
                 % Initialize it again at random
                 Ak = randn(L,1);
@@ -163,7 +205,7 @@ function [A, lambda, stat] = subspace_power_method(T, L, n, R, varargin)
                 Ak_new = Ak_new + shift*Ak;
                 Ak_new = Ak_new/norm(Ak_new);
 
-                if norm(Ak - Ak_new) < gradtol
+                if norm(Ak - Ak_new) < opts.gradtol
                     % Algorithm converged
                     Ak = Ak_new;
                     break
@@ -175,7 +217,7 @@ function [A, lambda, stat] = subspace_power_method(T, L, n, R, varargin)
           
           stat.avgiter = stat.avgiter + iter;
           
-          if 1-f<eigtol
+          if 1-f<opts.eigtol
              break
           elseif tries==1 || f>f_
               stat.nrr = stat.nrr + 1;
@@ -191,45 +233,84 @@ function [A, lambda, stat] = subspace_power_method(T, L, n, R, varargin)
         timenow = toc(timer);
         stat.powertime = stat.powertime + timenow - lap;
         lap = timenow;
+        
+        if mod(n,2)
 
-        % Calculate power of Xk
-        Apow = Ak;
-        for i=2:n2
+            % Calculate power of Xk
+            Apow = Ak;
+            for i=2:n2-1
+                Apow = reshape(Apow.*Ak',[],1);
+            end
+
+            % Calculate projection of Xpow in subspace
+            alphaU = (Apow'*U)';
+            
             Apow = reshape(Apow.*Ak',[],1);
+            
+            alphaV = (Apow'*V);
+
+            % Solve for lambda
+            D1alphaU = D1*alphaU;
+            D1alphaV = (alphaV * D1)';
+            lambdak = 1/(alphaV*D1alphaU);
+
+            if k > 1
+                % Calculate the new matrix D and the new subspace
+
+                % Use Householder reflection to update V and D
+                y = (sign(D1alphaU(k))/norm(D1alphaU))*D1alphaU;
+                xk = sqrt(1+y(k));
+                x = [y(1:k-1)/xk;xk];
+
+                D1 = LHR(D1,x);
+                V = RHR(V,x);
+                
+                y = (sign(D1alphaV(k))/norm(D1alphaV))*D1alphaV;
+                xk = sqrt(1+y(k));
+                x = [y(1:k-1)/xk;xk];
+                
+                D1 = RHR(D1,x);
+                U = RHR(U,x);
+
+            end
+            
+        else
+            
+            % Calculate power of Xk
+            Apow = Ak;
+            for i=2:n2
+                Apow = reshape(Apow.*Ak',[],1);
+            end
+
+            % Calculate projection of Xpow in subspace
+            alpha = (Apow'*V)';
+
+            % Solve for lambda
+            D1alpha = D1*alpha;
+            lambdak = 1/(alpha'*D1alpha);
+
+            if k > 1
+                % Calculate the new matrix D and the new subspace
+
+                % Use Householder reflection to update V and D
+                y = (sign(D1alpha(k))/norm(D1alpha))*D1alpha;
+                xk = sqrt(1+y(k));
+                x = [y(1:k-1)/xk;xk];
+
+                D1 = RHR(LHR(D1,x),x);
+
+                V = RHR(V,x);
+
+            end
+            
+            
         end
-
-        % Calculate projection of Xpow in subspace
-        alpha = (Apow'*V)';
-
-        % Solve for lambda
-        D1alpha = D1*alpha;
-        lambdak = 1/(alpha'*D1alpha);
-
-        if nargout == 1
-            A(:,k) = Ak*lambdak^(1/n);
+        
+        if nargout <= 1
+                A(:,k) = Ak*lambdak^(1/n);
         else
             A(:,k) = Ak;
             lambda(k) = lambdak;
-        end
-        
-        
-
-        if k > 1
-            % Calculate the new matrix D and the new subspace
-
-            
-            % Use Householder reflection to update V and D
-            y = (sign(D1alpha(k))/norm(D1alpha))*D1alpha;
-            xk = sqrt(1+y(k));
-            x = [y(1:k-1)/xk;xk];
-            
-            D1 = RHR(LHR(D1,x),x);
-            
-            V = RHR(V,x);
-            %V(:,end) = V*x;
-            %Q = sparse(1:k-1, 1:k-1, 1,k, k-1,2*(k-1));
-            %Q(k,:) = -x(1:end-1);
-            %V = V*Q;
         end
         
         timenow = toc(timer);
@@ -240,7 +321,11 @@ function [A, lambda, stat] = subspace_power_method(T, L, n, R, varargin)
     
     stat.avgiter = stat.avgiter/R;
     stat.totaltime = toc(timer);
-
+    
+    if nargout==2; varargout{1} = lambda; end
+    if nargout==3; varargout{2} = stat; end
+        
+        
 end
 
 function A_ =  LHR(A,x)

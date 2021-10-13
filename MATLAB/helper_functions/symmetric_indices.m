@@ -1,4 +1,4 @@
-function [symind, findsym, ncomb] = symmetric_indices(L,n)
+function [symind, findsym, ncomb] = symmetric_indices(L, n)
 
     % Number of rows and columns of new matrix
     dsym = nchoosek(L+n-1,n);
@@ -16,7 +16,12 @@ function [symind, findsym, ncomb] = symmetric_indices(L,n)
         end
     end
     if nargout>1
-        findsym = zeros(L * ones(1,n));
+        if n==1
+            findsym = zeros(L,1);
+        else
+            findsym = zeros(L * ones(1,n));
+        end
+        
         for perm = perms(1:n)'
             findsym((symind(:,perm)-1) * (L.^(0:n-1)') + 1) = 1:dsym;
         end

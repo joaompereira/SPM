@@ -48,10 +48,10 @@ function [A, W, stat] = subspace_power_method_general(T, L, n, R, K, varargin)
     if nargin<4; R = []; end
     if nargin<5; K = []; end
        
-    n2 = n/2;
+    n2 = ceil(n/2);
     d = L^n2;
     
-    assert(mod(n,2)==0 && n > 0,'n is not even an even positive integer');
+    assert(n > 2);
     
     if ~isempty(K)
         assert(~isempty(R) && mod(R,nchoosek(K+n2-1,n2))==0);
@@ -59,25 +59,37 @@ function [A, W, stat] = subspace_power_method_general(T, L, n, R, K, varargin)
     
     %% Set options here   
     try
-        [maxiter, ntries, gradtol, eigtol, eigtol2, ftol] = ...
-            option_parser(varargin, {'maxiter',  2000, @(x) x>0},...
-                                    { 'ntries',     3, @(x) x>0},...
-                                    {'gradtol', 1e-14, @(x) x>0},...
-                                    { 'eigtol',  1e-8, @(x) x>0},...
-                                    {'eigtol2',  1e-3, @(x) x>0},...
-                                    {   'ftol',  1e-2/sqrt(L), @(x) x>0});
+        opts = option_parser(varargin, {'maxiter',  2000, @(x) x>0},...
+                                       { 'ntries',     3, @(x) x>0},...
+                                       {'gradtol', 1e-14, @(x) x>0},...
+                                       { 'eigtol',  1e-8, @(x) x>0},...
+                                       {'eigtol2',  1e-3, @(x) x>0},...
+                                       {   'ftol',  1e-2/sqrt(L), @(x) x>0});
     catch ME
         if strcmp(ME.identifier,'MATLAB:UndefinedFunction')
-            warning('Did you add ''helper_functions'' to the MATLAB path?');
-        end
-        rethrow(ME)
+            warning("%s\n%s","It appears ''.\helper_functions\''",...
+                             "was not added to the MATLAB path.");
+            answer = questdlg("Add ''.\helper_functions\'' to path?");
+            if answer=="Yes"
+                fullfile = mfilename('fullpath');
+                filepath = fileparts(fullfile);
+                addpath(filepath + "/helper_functions/")
+                [A, varargout{1:nargout-1}] = subspace_power_method(T, L, n, R, varargin{:});
+                return
+            else
+                rethrow(ME)
+            end
+                
+        else
+            rethrow(ME)
+        end    
     end
+
     
     timer = tic;
 
     %% Flatten T
-    T = reshape(T,d,d);
-
+    T = reshape(T,d,[]);
     %%
     % In this block of code we exploit the fact that each column and row of   
     % mat(T) is a symmetric tensor of order d and therefore has a lot of 
@@ -85,26 +97,56 @@ function [A, W, stat] = subspace_power_method_general(T, L, n, R, K, varargin)
     % mat(T), which has L^(2d) entries, we calculate an equivalent eigen
     % decomposition of a matrix with roughly (L^d/d!)^2 entries, this way 
     % getting a speed up of approximately (d!)^3.
-    
-    [symind, findsym, symindscale] = symmetric_indices(L, n2);
 
-    symindscale = sqrt(symindscale);
-    findsym = reshape(findsym,[],1);
-    findsymscale = 1./symindscale(findsym);
-    symind = (symind-1)*(L.^(0:n2-1)')+1;
-    %%
-    % Eigen decomposition
-    [symV, D] = eig2(symindscale.*T(symind,symind).*symindscale');
+    if mod(n,2)
+        [symind_l, findsym_l, symindscale_l] = symmetric_indices(L, n2);
+        [symind_r, findsym_r, symindscale_r] = symmetric_indices(L, n2-1);
+        
+        symindscale_l = sqrt(symindscale_l);
+        symindscale_r = sqrt(symindscale_r);
+        findsym_l = reshape(findsym_l,[],1);
+        findsym_r = reshape(findsym_r,[],1);
+        symind_l = (symind_l-1)*(L.^(0:n2-1)')+1;
+        symind_r = (symind_r-1)*(L.^(0:n2-2)')+1;
+        
+        [symV, D, symU] = svd(symindscale_l.*T(symind_l,symind_r).*...
+                              symindscale_r', 'econ');
+        D = diag(D);
+        
+        % Determine tensor rank by the eigenvalues of mat(T)
+        if isempty(R)
+            R = sum(abs(D) > opts.eigtol);
+        end
+        
+        D1 = diag(1./D(1:R));
 
-    % Determine tensor rank by the eigenvalues of mat(T)
-    if isempty(R)
-        R = sum(abs(D) > eigtol);
+        V = symV(:,1:R)./symindscale_l;
+        V = V(findsym_l, :);
+        
+        U = symU(:,1:R)./symindscale_r;
+        U = U(findsym_r, :);
+        
+        
+    else
+        [symind, findsym, symindscale] = symmetric_indices(L, n2);
+
+        symindscale = sqrt(symindscale);
+        findsym = reshape(findsym,[],1);
+        symind = (symind-1)*(L.^(0:n2-1)')+1;
+        %%
+        % Eigen decomposition
+        [symV, D] = eig2(symindscale.*T(symind,symind).*symindscale');
+
+        % Determine tensor rank by the eigenvalues of mat(T)
+        if isempty(R)
+            R = sum(abs(D) > opts.eigtol);
+        end
+
+        D1 = diag(1./D(1:R));
+
+        V = symV(:,1:R)./symindscale;
+        V = V(findsym, :);
     end
-
-    D1 = diag(1./D(1:R));
-
-    V = findsymscale.*symV(findsym,1:R);
-    
 
     % C_n from Lemma 4.7
     if n2<=4
@@ -126,13 +168,13 @@ function [A, W, stat] = subspace_power_method_general(T, L, n, R, K, varargin)
       
         V_ = reshape(V,[],L*R);
 
-        for tries = 1:ntries
+        for tries = 1:opts.ntries
           
           % Initialize Ak
           Ak = randn(L,1);
           Ak = Ak/norm(Ak);
         
-          for iter = 1:maxiter
+          for iter = 1:opts.maxiter
 
             % Calculate power of Ak
             Apow = Ak;
@@ -153,7 +195,7 @@ function [A, W, stat] = subspace_power_method_general(T, L, n, R, K, varargin)
             clambda = sqrt(f_*(1-f_));
             shift = cn*clambda;
 
-            if f < ftol
+            if f < opts.ftol
                 % Ak was not a good initialization
                 % Initialize it again at random
                 Ak = randn(L,1);
@@ -163,7 +205,7 @@ function [A, W, stat] = subspace_power_method_general(T, L, n, R, K, varargin)
                 Ak_new = Ak_new + shift*Ak;
                 Ak_new = Ak_new/norm(Ak_new);
 
-                if norm(Ak - Ak_new) < gradtol
+                if norm(Ak - Ak_new) < opts.gradtol
                     % Algorithm converged
                     Ak = Ak_new;
                     break
@@ -175,7 +217,7 @@ function [A, W, stat] = subspace_power_method_general(T, L, n, R, K, varargin)
           
           stat.avgiter = stat.avgiter + iter;
           
-          if 1-f<eigtol
+          if 1-f<opts.eigtol
              break
           elseif tries==1 || f>f_
               stat.nrr = stat.nrr + 1;
@@ -207,69 +249,76 @@ function [A, W, stat] = subspace_power_method_general(T, L, n, R, K, varargin)
         if ~isempty(K)
             KerR = K;
         else
-            KerR = max(sum(KerD < eigtol2),1);
+            KerR = max(sum(KerD < opts.eigtol2),1);
         end
 
         Ker = Ker(:,L-KerR+1:L);
+        
+        if mod(n,2)
+            [symind, findsym, scale] = symmetric_indices(KerR, n2);
+            nR = size(symind,1);
+            scale = sqrt(scale);
+            Kerpow = Ker(:,symind(:,1)) .* scale';
+            for j=2:n2
+                Kerpow = khatri_rao_product(Kerpow, Ker(:,symind(:,j)), nR);
+            end
+            Kerpow = symmetrize_tensor(Kerpow, L, n2);
+            nV = (Kerpow'*V)';
+            
+            [symind, findsym, scale] = symmetric_indices(KerR, n2-1);
+            nR = size(symind,1);
+            scale = sqrt(scale);
+            Kerpow = Ker(:,symind(:,1)) .* scale';
+            for j=2:n2-1
+                Kerpow = khatri_rao_product(Kerpow, Ker(:,symind(:,j)), nR);
+            end
+            Kerpow = symmetrize_tensor(Kerpow, L, n2);
+            nU = (Kerpow'*U)';
+            
+        else 
+        
+            [symind, findsym, scale] = symmetric_indices(KerR, n2);
+            nR = size(symind,1);
+            scale = sqrt(scale);
+            Kerpow = Ker(:,symind(:,1)) .* scale';
+            for j=2:n2
+                Kerpow = khatri_rao_product(Kerpow, Ker(:,symind(:,j)), nR);
+            end
+            Kerpow = symmetrize_tensor(Kerpow, L, n2);
+            nV = (Kerpow'*V)';
 
-        [symind, findsym, scale] = symmetric_indices(KerR, n2);
-        nR = size(symind,1);
-        scale = sqrt(scale);
-        Kerpow = Ker(:,symind(:,1)) .* scale';
-        for j=2:n2
-            Kerpow = khatri_rao_product(Kerpow, Ker(:,symind(:,j)), nR);
+            % W is given by Lemma ___
+            D1nV = D1*nV;
+            WV1 = nV'*D1nV;
+            WV1 = (WV1 + WV1')/2;
+
+            A{genrank} = Ker;
+            findsym = findsym(:);
+            iWV1 = inv(WV1);
+            iWV1 = iWV1./(scale .* scale.');
+            W_flat = iWV1(findsym, findsym);
+            W{genrank} = reshape(W_flat, KerR*ones(1,n));
+
+            R = R - nR;
+
+            % DEFLATION
+            if R > 0
+                genrank = genrank + 1;
+
+                % See hh_preprocess (below) for more info
+                % on Householder reflection implementation
+                [X, Xt] = hh_preprocess(D1nV);
+                Xt = Xt(:, nR+1:nR+R);
+
+                % Using formulas in Appendix B          
+                D1 = D1(:, nR+1:nR+R) - (D1 * X) * Xt;
+                D1 = D1(nR+1:nR+R, :) - Xt' * (X' * D1);
+
+                V = V(:, nR+1:nR+R) - (V * X) * Xt;
+
+            end
         end
-        Kerpow = symmetrize_tensor(Kerpow, L, n2);
-        nU = (Kerpow'*V)';
-        
 
-        % Kerpow has all tensor products of columns of Ker
-        %Kerpow = Ker;
-        %for i=2:n2
-        %    Kerpow = kron(Kerpow, Ker);
-        %end
-
-        % Obtain a orthonormal basis for the projection of the columns of
-        % Kerpow in V
-        %[nU,nS,nV] = svd(V'*Kerpow);
-
-        %nR = nchoosek(KerR+n2-1,n2);
-
-        %nU = nU(:,1:nR);
-        %nV = nV(:,1:nR);
-
-        % W is given by Lemma ___
-        D1nU = D1*nU;
-        WV1 = nU'*D1nU;
-        WV1 = (WV1 + WV1')/2;
-        %WV = inv(WV1);
-
-        A{genrank} = Ker;
-        findsym = findsym(:);
-        findsymscale = reshape(scale(findsym),[],1);
-        iWV1 = inv(WV1);
-        W_flat = iWV1(findsym,findsym)./(findsymscale.*findsymscale');
-        W{genrank} = reshape(W_flat, KerR*ones(1,n));
-
-        R = R - nR;
-        
-        % DEFLATION
-        if R > 0
-            genrank = genrank + 1;
-            
-            % See hh_preprocess (below) for more info
-            % on Householder reflection implementation
-            [X, Xt] = hh_preprocess(D1nU);
-            Xt = Xt(:, nR+1:nR+R);
-            
-            % Using formulas in Appendix B          
-            D1 = D1(:, nR+1:nR+R) - (D1 * X) * Xt;
-            D1 = D1(nR+1:nR+R, :) - Xt' * (X' * D1);
-            
-            V = V(:, nR+1:nR+R) - (V * X) * Xt;
-
-        end
-        
         timenow = toc(timer);
         stat.deflatetime = stat.deflatetime + timenow - lap;
         lap = timenow;
