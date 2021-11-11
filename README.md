@@ -1,7 +1,7 @@
 # Subspace power method
 
 An implementation of the subspace power method in MATLAB,
-for decomposing symmetric even-order tensors, as described in 
+for decomposing symmetric tensors, as described in 
 
 J. Kileel, J. M. Pereira,
 [**Subspace power method for symmetric tensor
