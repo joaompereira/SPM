@@ -41,14 +41,15 @@ A README for the installation of other packages may also be added in the future.
   
 <details> <summary>Python</summary>
 
+### Required Packages
+
+  - `numpy`
+  - `scipy`
+  - `numba` (Optional, compiles with numba if available)
+  
 ### Installation
 
 To install you just need to copy the python files, and from SPM.py, import the method `subspace_power_method`.
 Additional methods (such as `generate_lowrank_tensor`) are also available which can be useful for testing SPM.
-
-### Compilation
-
-The python code for SPM does not require the package `numba` to compile, but if the package is available it
-compiles using it. This option can be deactivated if desired.
   
 </details>  
