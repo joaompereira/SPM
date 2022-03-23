@@ -1,6 +1,6 @@
 # Subspace power method
 
-An implementation of the subspace power method in MATLAB,
+An implementation of the subspace power method, in MATLAB and Python,
 for decomposing symmetric tensors, as described in 
 
 J. Kileel, J. M. Pereira,
