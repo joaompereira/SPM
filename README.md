@@ -45,7 +45,9 @@ A README for the installation of other packages may also be added in the future.
 
   - `numpy`
   - `scipy`
-  - `numba` (Optional, compiles with numba if available)
+
+### Optional Package
+  - `numba`: This package provides a just-in-time pre-compiler that can considerably speed up SPM performance. It is used only if the numba package is installed.            
   
 ### Installation
 
