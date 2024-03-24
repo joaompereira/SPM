@@ -9,7 +9,7 @@ except ModuleNotFoundError:
     def compiler_decorator(fun):
         return fun
 
-    NUMBA_COMPILER = True
+    NUMBA_COMPILER = False
 
 BLAS_DOT = False
 if not NUMBA_COMPILER:
