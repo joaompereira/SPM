@@ -1,103 +1,111 @@
-clear all
+clearvars
 clc
 addpath '../'
 addpath '../helper_functions/'
-addpath '../other_packages/'
-%addpath(genpath('../other_packages/'))
+addpath(genpath('../other_packages/'))
+
+rng_seed = 9; % for reproducibility
+rng(rng_seed);
+
+disp('Running noise experiment (Figure 3)...');
+
 
 % L and R values
-L = 10;
-R = 20;
+L = 15;
+R = 30;
+n = 4;
 
 % Different Algorithms
-% The tensor order has to be 4 for FOOBI to work
-Algs = {'FOOBI1',@(T,L,R) FOOBI1_tensor_decomposition(T, L, R);...
-        'SPM' ,@(T,L,R) subspace_power_method(T, L, 4, R);...
-        'TensorLab' ,@(T,L,R) tensorlab_ccpd_nls(T,L,4,R);...  
+Algs = {'SPM', @(T,L,R) subspace_power_method(T, L, n, R);
+        'FOOBI', @(T,L,R) FOOBI1_tensor_decomposition(T, L, R);
+        'Tensorlab', @(T,L,R) tensorlab_ccpd_nls(T, L, n, R);       
         };
 
 nalgs = size(Algs,1);
 
-noise = 10.^(linspace(-8,-2,4));
-nvals = length(noise);
+ntries = 5;
 
-% Number of tries for each algorithm
-% Some algorithms have more variable running times, so we run them more
-% times to produce smoother results
-ntries = [3,3,3,3];
+sigmavals = 10.^[-4:-2, -1:.1:0];%linspace(-4, 0, 13);%
+nvals = length(sigmavals);
 
 % True rank decomposition
-A_true = randn(L,R);
-
-% Generate clean 4D tensor
-T_clean = generate_lowrank_tensor(A_true, 4);
+A_true = randn(L,R) / sqrt(L);
+T_clean = generate_lowrank_tensor(A_true, n);
+%gamma = norm(T_clean(:)) / sqrt(L^3 / 6);
 
 % Time of execution and estimate error for different algorithms and (L,R)
 % values
+
 time = NaN(nalgs,nvals);
-error = NaN(nalgs,nvals);
+time_el = NaN(nalgs,nvals);
+std_time = NaN(nalgs,nvals);
+std_time_el = NaN(nalgs,nvals);
+freq_converged = NaN(nalgs,nvals);
+min_err = NaN(nalgs,nvals);
 
-s = "-";
-for i = 2:9+12*nalgs
-  s = s + "-";
-end
+warning('error', 'MATLAB:rankDeficientMatrix');
 
-fprintf('\n%s\n',s)
-fprintf('| Noise |')
-for i=1:nalgs
-  fprintf(' %9s |',Algs{i,1});
-end
-fprintf('\n%s\n',s)
-   
+
 for j=1:nvals
-    
-    fprintf('| %1.0e |', noise(j))
-    % Add noise to entries of Tensor, making sure the tensor is still
-    % symmetric
-    T = T_clean + noise(j)*symmetrize_tensor(randn(L*ones(1,4)));
-        
+    sigma = sigmavals(j);
+    fprintf('sigma =%2e\n', sigmavals(j));
+
+    % Generate nD tensor
+    T_noise = symmetrize_tensor(randn(L, L, L));
+    T_noise = T_noise / norm(reshape(T_noise, [], 1));
+    T = T_clean + sigma * T_noise;
+
     for i=1:nalgs
-        
+
+        if j>1 && isnan(min_err(i,j-1))
+          continue
+        end
+
+        fprintf(' - %s\n',Algs{i});
+
         % Pre-allocate local time and error vectors for all tries
-        timeij = zeros(ntries(i),1);
-        errorij = zeros(ntries(i),1);
+        timeij = nan(ntries, 1);
+        errij = nan(ntries,1);
+
+        for tries=1:ntries
         
-        for tries=1:ntries(i)
-            
-            % Start clock
             timer = tic;
+
+            error_flag = true;
             
-            % Use Algorithm i to get rank decomposition
-            A_est = Algs{i,2}(T,L,R);
-            
+            try
+                % Use Algorithm i to get rank decomposition
+                A_est = Algs{i,2}(T,L,R);
+            catch ME
+                continue
+            end
+    
             % Get time
             timeij(tries) = toc(timer);
-            
+
             % Calculate error
-            errorij(tries) = rderror(A_est, A_true, 4);
+            errij(tries) = rderror(A_est, A_true, n);
             
         end
-        
-        % Log Average over all runs
-        time(i,j) = mean(timeij);
-        error(i,j) = mean(errorij);
-        
-        fprintf(' %1.3e |',error(i,j));
 
+
+        % Average over all runs
+        time(i,j) = mean(timeij(~isnan(timeij)));
+        time_el(i,j) = mean(log(timeij(~isnan(timeij))));
+        std_time(i,j) = std(timeij(~isnan(timeij)));
+        std_time_el(i,j) = std(log(timeij(~isnan(timeij))));
+        threshold = 8*median(errij(~isnan(errij)));
+        freq_converged(i,j) = mean(errij < threshold);
+        %mean(errij(errij < threshold));
+        min_err(i, j) = min(errij);
+        
     end
     
-    fprintf('\n%s\n',s)
 end
-
-ratio = mean(error./noise,2);
-fprintf('| Ratio |')
-for i=1:nalgs
-  fprintf(' %1.3e |',ratio(i));
-end
-fprintf('\n%s\n',s)
 
 % Save results
-clear T T_clean % T is cleared since it occupies a lot of space
-save results/testrd_noise_.mat
+clear T T_noise T_clean % T is cleared since it occupies a lot of space
+save results/testrd_noise.mat
+
 
 

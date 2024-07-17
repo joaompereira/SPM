@@ -25,6 +25,8 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
 %                    rank(T)<L and the first guess for x is almost
 %                    orthogonal to the span of the a_i. Without this check
 %                    the convergence when this happened would be very slow
+%          adaptive: Flag indicating if using adaptive shifts (depending on
+%                    current function value) or fixed. Defaults to true.
 %                    
 %
 %   ** OUTPUT **
@@ -38,12 +40,11 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
 
 % Reference:
 % J. Kileel, J. M. Pereira, Subspace power method for symmetric tensor
-%                           decomposition and generalized PCA
+%                           decomposition
 % https://github.com/joaompereira/SPM
 % 
-% version 1.1 (06/07/2021) - MIT License
-
-
+% version 1.2 (07/17/2024) - MIT License
+    
     if nargin<2 || isempty(L); L = size(T,1); end
     if nargin<3 || isempty(n); n = round(log(numel(T))/log(L)); end
     if nargin<4; R = []; end
@@ -58,29 +59,20 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
         opts = option_parser(varargin, {'maxiter', 5000, @(x) x>0},...
                                        { 'ntries', 3, @(x) x>0},...
                                        {'gradtol', 1e-14, @(x) x>0},...
-                                       { 'eigtol', 1e-8, @(x) x>0},...
-                                       {   'ftol', 1e-2/sqrt(L), @(x) x>0});
+                                       {'ranksel', 1e-4},...
+                                       {   'ftol', 1e-2, @(x) x>0},...
+                                       {'frestol', 1e-2/sqrt(L), @(x) x>0},...
+                                      {'adaptive', true, @(x) x>0});        
+    
     catch ME
         if strcmp(ME.identifier,'MATLAB:UndefinedFunction')
-            warning("%s\n%s","It appears ''.\helper_functions\''",...
-                             "was not added to the MATLAB path.");
-            answer = questdlg("Add ''.\helper_functions\'' to path?");
-            if answer=="Yes"
-                fullfile = mfilename('fullpath');
-                filepath = fileparts(fullfile);
-                addpath(filepath + "/helper_functions/")
-                [A, varargout{1:nargout-1}] = subspace_power_method(T, L, n, R, varargin{:});
-                return
-            else
-                rethrow(ME)
-            end
-                
-        else
-            rethrow(ME)
-        end    
+            setup
+            error("Folders added to path. Please re-run the code.")
+        end
+        rethrow(ME)
     end
-        
-                                
+
+
     timer = tic;
 
     % Flatten T
@@ -111,7 +103,8 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
         
         % Determine tensor rank by the eigenvalues of mat(T)
         if isempty(R)
-            R = sum(abs(D) > opts.eigtol);
+            typical = mean(abs(D).^2) / mean(abs(D));
+            R = sum(abs(D) > opts.ranksel * typical);
         end
         
         D1 = diag(1./D(1:R));
@@ -135,7 +128,8 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
 
         % Determine tensor rank by the eigenvalues of mat(T)
         if isempty(R)
-            R = sum(abs(D) > opts.eigtol);
+            typical = mean(abs(D).^2) / mean(abs(D));
+            R = sum(abs(D) > opts.ranksel * typical);
         end
 
         D1 = diag(1./D(1:R));
@@ -151,12 +145,8 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
     end
 
     % C_n from Lemma 4.7
-    if n2<=4
-      cn = sqrt(2*(n2-1)/n2);
-    else
-      cn = (2-sqrt(2))*sqrt(n2);
-    end
-
+    cn = sqrt((n2-1)/n2);
+    
     lap = toc(timer);
     stat.extracttime = lap;
     stat.powertime = 0;
@@ -179,7 +169,7 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
             % Calculate power of Xk
             Apow = Ak;
             for i=2:n2-1
-                Apow = reshape(Apow.*Ak',[],1);
+                Apow = reshape(Apow*Ak',[],1);
             end
 
             % Calculate contraction of V with x^(n2-1)
@@ -191,11 +181,16 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
 
             % Determine optimal shift
             % Sometimes due to numerical error f can be greater than 1
-            f_ = max(min(f,1),.5);
-            clambda = sqrt(f_*(1-f_));
-            shift = cn*clambda;
+            if ~opts.adaptive
+                clambda = 1;
+            elseif f > 2/3
+                clambda = sqrt(2*f*max(1-f, 0));
+            else
+                clambda = 1 - f/2;
+            end
+            shift = clambda * cn;
 
-            if f < opts.ftol
+            if f < opts.frestol
                 % Xk was not a good initialization
                 % Initialize it again at random
                 Ak = randn(L,1);
@@ -217,7 +212,7 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
           
           stat.avgiter = stat.avgiter + iter;
           
-          if 1-f<opts.eigtol
+          if 1-f<opts.ftol
              break
           elseif tries==1 || f>f_
               stat.nrr = stat.nrr + 1;
@@ -239,13 +234,13 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
             % Calculate power of Xk
             Apow = Ak;
             for i=2:n2-1
-                Apow = reshape(Apow.*Ak',[],1);
+                Apow = reshape(Apow*Ak',[],1);
             end
 
             % Calculate projection of Xpow in subspace
             alphaU = (Apow'*U)';
             
-            Apow = reshape(Apow.*Ak',[],1);
+            Apow = reshape(Apow*Ak',[],1);
             
             alphaV = (Apow'*V);
 
@@ -279,7 +274,7 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
             % Calculate power of Xk
             Apow = Ak;
             for i=2:n2
-                Apow = reshape(Apow.*Ak',[],1);
+                Apow = reshape(Apow*Ak',[],1);
             end
 
             % Calculate projection of Xpow in subspace
@@ -307,7 +302,10 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
         end
         
         if nargout <= 1
-                A(:,k) = Ak*lambdak^(1/n);
+            if mod(n, 2) || lambdak >= 0
+                A(:,k) = Ak*nthroot(lambdak, n);
+            end
+            
         else
             A(:,k) = Ak;
             lambda(k) = lambdak;
@@ -322,20 +320,21 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
     stat.avgiter = stat.avgiter/R;
     stat.totaltime = toc(timer);
     
-    if nargout==2; varargout{1} = lambda; end
     if nargout==3; varargout{2} = stat; end
+    if nargout>=2; varargout{1} = lambda; end
         
         
 end
 
-function A_ =  LHR(A,x)
+function A = LHR(A,x)
 
-A_ = A(1:end-1,:) + x(1:end-1) * (-x'*A);
+A = A(1:end-1, :) + x(1:end-1) * (-x'*A);
 
 end
 
-function A_ =  RHR(A,x)
+function A =  RHR(A,x)
 
-A_ = A(:,1:end-1) + (A*(-x))*x(1:end-1)';
+A = A - (A*x)*x';
+A = A(:, 1:end-1);
 
 end

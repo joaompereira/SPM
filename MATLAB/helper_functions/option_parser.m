@@ -9,7 +9,7 @@ function opts = option_parser(user_options, varargin)
   end
   parse(iP,user_options{:});
   
-  for i=1:length(varargin)
+  for i=1:n
       opts.(varargin{i}{1}) = iP.Results.(varargin{i}{1});
   end
   

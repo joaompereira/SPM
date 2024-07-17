@@ -41,17 +41,16 @@ function [A, W, stat] = subspace_power_method_general(T, L, n, R, K, varargin)
 %                           decomposition and generalized PCA
 % https://github.com/joaompereira/SPM
 % 
-% version 1.1 (06/07/2021) - MIT License
-
+% version 1.2 (07/17/2024) - MIT License
+    
     if nargin<2 || isempty(L); L = size(T,1); end
     if nargin<3 || isempty(n); n = round(log(numel(T))/log(L)); end
     if nargin<4; R = []; end
     if nargin<5; K = []; end
        
-    n2 = ceil(n/2);
-    d = L^n2;
+    n2 = floor(n/2);
     
-    assert(n > 2);
+    assert(n > 3);
     
     if ~isempty(K)
         assert(~isempty(R) && mod(R,nchoosek(K+n2-1,n2))==0);
@@ -67,29 +66,16 @@ function [A, W, stat] = subspace_power_method_general(T, L, n, R, K, varargin)
                                        {   'ftol',  1e-2/sqrt(L), @(x) x>0});
     catch ME
         if strcmp(ME.identifier,'MATLAB:UndefinedFunction')
-            warning("%s\n%s","It appears ''.\helper_functions\''",...
-                             "was not added to the MATLAB path.");
-            answer = questdlg("Add ''.\helper_functions\'' to path?");
-            if answer=="Yes"
-                fullfile = mfilename('fullpath');
-                filepath = fileparts(fullfile);
-                addpath(filepath + "/helper_functions/")
-                [A, varargout{1:nargout-1}] = subspace_power_method(T, L, n, R, varargin{:});
-                return
-            else
-                rethrow(ME)
-            end
-                
-        else
-            rethrow(ME)
-        end    
+            setup
+            error("Folders added to path. Please re-run the code.")
+        end
+        rethrow(ME)
     end
 
-    
     timer = tic;
 
     %% Flatten T
-    T = reshape(T,d,[]);
+    T = reshape(T, L^n2, []);
     %%
     % In this block of code we exploit the fact that each column and row of   
     % mat(T) is a symmetric tensor of order d and therefore has a lot of 
@@ -100,14 +86,14 @@ function [A, W, stat] = subspace_power_method_general(T, L, n, R, K, varargin)
 
     if mod(n,2)
         [symind_l, findsym_l, symindscale_l] = symmetric_indices(L, n2);
-        [symind_r, findsym_r, symindscale_r] = symmetric_indices(L, n2-1);
+        [symind_r, findsym_r, symindscale_r] = symmetric_indices(L, n2+1);
         
         symindscale_l = sqrt(symindscale_l);
         symindscale_r = sqrt(symindscale_r);
         findsym_l = reshape(findsym_l,[],1);
         findsym_r = reshape(findsym_r,[],1);
         symind_l = (symind_l-1)*(L.^(0:n2-1)')+1;
-        symind_r = (symind_r-1)*(L.^(0:n2-2)')+1;
+        symind_r = (symind_r-1)*(L.^(0:n2)')+1;
         
         [symV, D, symU] = svd(symindscale_l.*T(symind_l,symind_r).*...
                               symindscale_r', 'econ');
@@ -230,6 +216,8 @@ function [A, W, stat] = subspace_power_method_general(T, L, n, R, K, varargin)
 
           
         end
+
+        f
         
         timenow = toc(timer);
         stat.powertime = stat.powertime + timenow - lap;
@@ -255,26 +243,68 @@ function [A, W, stat] = subspace_power_method_general(T, L, n, R, K, varargin)
         Ker = Ker(:,L-KerR+1:L);
         
         if mod(n,2)
-            [symind, findsym, scale] = symmetric_indices(KerR, n2);
+            [symind, findsymV, scaleV] = symmetric_indices(KerR, n2);
             nR = size(symind,1);
-            scale = sqrt(scale);
-            Kerpow = Ker(:,symind(:,1)) .* scale';
+            scaleV = sqrt(scaleV);
+            Kerpow = Ker(:,symind(:,1)) .* scaleV';
             for j=2:n2
                 Kerpow = khatri_rao_product(Kerpow, Ker(:,symind(:,j)), nR);
             end
             Kerpow = symmetrize_tensor(Kerpow, L, n2);
-            nV = (Kerpow'*V)';
+            nV = Kerpow'*V;
             
-            [symind, findsym, scale] = symmetric_indices(KerR, n2-1);
-            nR = size(symind,1);
-            scale = sqrt(scale);
-            Kerpow = Ker(:,symind(:,1)) .* scale';
-            for j=2:n2-1
-                Kerpow = khatri_rao_product(Kerpow, Ker(:,symind(:,j)), nR);
+            [symind, findsymU, scaleU] = symmetric_indices(KerR, n2+1);
+            scaleU = sqrt(scaleU);
+            Kerpow = Ker(:,symind(:,1)) .* scaleU';
+            for j=2:n2+1
+                Kerpow = khatri_rao_product(Kerpow, Ker(:,symind(:,j)));
             end
-            Kerpow = symmetrize_tensor(Kerpow, L, n2);
-            nU = (Kerpow'*U)';
+            Kerpow = symmetrize_tensor(Kerpow, L, n2+1);
+            nU = Kerpow'*U;
+
+            [KU, KS, KV] = svd(nU);
+            KS = diag(KS);
+            KS = KS(1:nR);
+            KU = KU(:, 1:nR);
+            KV = KV(:, 1:nR);
+
             
+            D1KV = D1*KV;
+            dLambda = decomposition(nV*D1KV);
+            
+            A{genrank} = Ker;
+            W_flat = (KU / dLambda)';
+            W_flat = W_flat./(scaleV .* scaleU');
+            W_flat = W_flat(findsymV(:), findsymU(:));
+            W{genrank} = reshape(W_flat, KerR*ones(1,n));
+            
+            R = R - nR;
+
+            % DEFLATION
+            if R > 0
+                genrank = genrank + 1;
+
+                nVD1 = nV*D1;
+
+                % See hh_preprocess (below) for more info
+                % on Householder reflection implementation
+                [X, Xt] = hh_preprocess(D1KV);
+                Xt = Xt(:, nR+1:nR+R);
+    
+                D1 = D1(nR+1:nR+R, :) - Xt' * (X' * D1);
+                V = V(:, nR+1:nR+R) - (V * X) * Xt;
+
+                % See hh_preprocess (below) for more info
+                % on Householder reflection implementation
+                [X, Xt] = hh_preprocess(nVD1');
+                Xt = Xt(:, nR+1:nR+R);
+
+                D1 = D1(:, nR+1:nR+R) - (D1 * X) * Xt;
+                U = U(:, nR+1:nR+R) - (U * X) * Xt;
+
+            end
+
+
         else 
         
             [symind, findsym, scale] = symmetric_indices(KerR, n2);
@@ -366,4 +396,21 @@ function [X, Xt] = hh_preprocess(Y)
     %      AQ = A - (A * X) * Xt
     %  or  QA = A - X * (Xt * A)
   
+end
+
+function [] = path_adder(ME)
+
+if strcmp(ME.identifier,'MATLAB:UndefinedFunction')
+    warning("%s\n%s","It appears ''.\helper_functions\''",...
+                     "was not added to the MATLAB path.");
+    answer = questdlg("Add ''.\helper_functions\'' to path?");
+    if answer=="Yes"
+        fullfile = mfilename('fullpath');
+        filepath = fileparts(fullfile);
+        addpath(filepath + "/helper_functions/")
+        warning("''.\helper_functions\'' added to path.")
+    end
+end
+rethrow(ME)
+
 end

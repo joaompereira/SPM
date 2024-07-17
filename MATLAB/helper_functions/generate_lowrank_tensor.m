@@ -19,12 +19,7 @@ if n==1
   return
 end
 
-Xpow = X;
-
-% Use kron to calculate tensor powers up to order n/2
-for j=2:n2
-    Xpow = khatri_rao_product(Xpow,X);
-end
+Xpow = khatri_rao_power(X, n2);
 
 % Speed up calculation using matrix multiplication
 if mod(n,2)
@@ -46,5 +41,23 @@ function AB = khatri_rao_product(A,B)
    A = reshape(A,1,[],n);
    B = reshape(B,[],1,n);
    AB = reshape(A.*B,[],n);
+
+end
+
+function An = khatri_rao_power(A, n)
+    if n==1
+        An = A;
+    elseif n==2 
+        An =  khatri_rao_product(A, A);
+    else
+        n2 = floor(n/2);
+        An2 = khatri_rao_power(A, n2);
+        if mod(n,2)
+            An2_ = khatri_rao_product(An2, A);
+        else
+            An2_ = An2;
+        end
+        An = khatri_rao_product(An2, An2_);
+    end
 
 end

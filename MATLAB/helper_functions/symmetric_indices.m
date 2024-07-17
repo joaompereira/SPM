@@ -9,22 +9,36 @@ function [symind, findsym, ncomb] = symmetric_indices(L, n)
     
     % Map from all indices to indices without permutations
     if nargout>2
-        ncomb = factorial(n)*ones(dsym,1);
-        
+        S = ones(dsym,1);
+        ncomb = factorial(n) * S;
+    
         for i=2:n
-            ncomb = ncomb ./ sum(symind(:,1:i)==symind(:,i),2);
+            S(symind(:,i-1)~=symind(:,i)) = 0;
+            S = S + 1;
+            ncomb = ncomb ./ S;
         end
+
     end
     if nargout>1
+
         if n==1
-            findsym = zeros(L,1);
+            findsym= zeros(L,1);
         else
             findsym = zeros(L * ones(1,n));
         end
+        findsym((symind-1) * (L.^(0:n-1)') + 1) = 1:dsym;
+        perm = 1:n;
+        for i=2:n
+            findsym_i = findsym;
+            for k=2:i
+                perm([n-i+1,n-i+k]) = [n-i+k,n-i+1];
+                findsym = max(findsym, permute(findsym_i, perm));
+                perm([n-i+1,n-i+k]) = [n-i+1,n-i+k];
+            end
+        end        
         
-        for perm = perms(1:n)'
-            findsym((symind(:,perm)-1) * (L.^(0:n-1)') + 1) = 1:dsym;
-        end
     end
+
+
     
 end

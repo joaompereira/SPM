@@ -3,8 +3,8 @@ function F = FOOBI1_tensor_decomposition(T, L, R, varargin)
 
 %% Set options here
 % Tolerance for choosing rank using eigenvalues 
-[eigtol, sd_options] = option_parser(varargin,{ 'eigtol', 1e-8, @(x) x>0},...
-                                              {'sd_options', struct(), @isstruct});
+opts = option_parser(varargin,{ 'eigtol', 1e-8, @(x) x>0},...
+                              {'sd_options', struct(), @isstruct});
 
 if nargin<2 || isempty(L); L = size(T,1); end
 if nargin<3; R = []; end
@@ -14,7 +14,7 @@ if nargin<3; R = []; end
 [V,D] = eig2(reshape(T,L^2,L^2));
 
 if isempty(R)
-    R = find(D>eigtol,1,'last');
+    R = find(D>opts.eigtol,1,'last');
 end
 
 H = V(:,1:R).*sqrt(D(1:R)');
@@ -51,25 +51,19 @@ PP = diag(HHdiag) - 2*HH2(indices);
 
 % Using eigs here is faster than eig
 % U is the null space of P
-[U, ~] = eigs(PP+1e-5*eye(R2),R,'smallestabs');
+[U, eigPP] = eigs(PP+1e-5*eye(R2),R,'smallestabs');
 
-W = zeros(R,R,R);
 
-ind=0;
 
 % Set W as the collection of matrices in the null space of P
-for i=1:R
-    ind = ind + 1;
-    W(i,i,:) = 2*U(ind,:);
-    for j=i+1:R
-        ind = ind + 1;
-        W(i,j,:) = U(ind,:);
-        W(j,i,:) = U(ind,:);
-    end
-end
+W = zeros(R^2,R);
+W(indx+R*(indy-1), :) = U;
+W(indy+R*(indx-1), :) = W(indy+R*(indx-1), :) + U;
+W = reshape(W, R, R, R);
+
 
 % Perform simultaneous diagonalization using Jacobi rotations
-[Q, ~] = simultaneous_diagonalization(W, sd_options);
+[Q, ~] = simultaneous_diagonalization(W, opts.sd_options);
 
 A = H * Q;
 
@@ -91,9 +85,9 @@ function [Q, W] = simultaneous_diagonalization(W, varargin)
 % maxtries: Maximum number of Jacobi Iterations
 %           for simoultaneous diagonalization
 % Jtol: Tolerance for Jacobi rotation 
-[maxtries, Jtol] = ...
-    option_parser(varargin,{'maxtries', 1000, @(x) x>0},...
-                           { 'Jtol' ,  1e-14, @(x) x>0});
+
+opts = option_parser(varargin,{'maxtries', 1000, @(x) x>0},...
+                              { 'Jtol' ,  1e-14, @(x) x>0});
 
 
 
@@ -116,7 +110,7 @@ end
 
 R = eye(L);
 
-for tries=1:maxtries
+for tries=1:opts.maxtries
   
     off = triu(vecnorm(W,2,3),1);
     
@@ -143,7 +137,7 @@ for tries=1:maxtries
     c = sqrt(v(1)/2+.5);
     s = v(2)/sqrt(2*(v(1)+1));
     
-    if abs(s) < Jtol
+    if abs(s) < opts.Jtol
       break
     end
     
