@@ -1,4 +1,4 @@
-function [M] = generate_lowrank_tensor(X, varargin)
+function [M] = generate_lowrank_symtensor(X, varargin)
 
 [L, R] = size(X);
 

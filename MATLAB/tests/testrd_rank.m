@@ -43,12 +43,12 @@ for i=1:nL
             A_true = randn(L,R);
 
             % Generate 4D tensor
-            T = generate_lowrank_tensor(A_true, 4);
+            T = generate_lowrank_symtensor(A_true, 4);
             
             % Use SPM to get rank decomposition
             A_est = subspace_power_method(T, L, 4);
             
-            diffT = T - generate_lowrank_tensor(A_est, 4);
+            diffT = T - generate_lowrank_symtensor(A_est, 4);
             error = norm(diffT(:));
             
             freqij(tries) = error<1e-6;
