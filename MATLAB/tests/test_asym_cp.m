@@ -3,7 +3,7 @@ addpath '../helper_functions/'
 addpath(genpath('../other_packages/'))
 
 %x_axis = 10:2:30;
-dim_vals = [5, 5, 6, 6];
+dim_vals = [5, 5, 6, 6, 7, 7];
 rank_vals = 10;%round(x_axis.^2 / 2)';
 noise_vals = 0;
 
@@ -16,7 +16,7 @@ nvals = size(dim_vals,1);
 order = size(dim_vals,2);
 
 Algs = {
-    'SPM v1' ,@(T, R) asym_SPM_v1(T, R);...
+    'SPM v1' ,@(T, R) asym_SPM(T, R);...
     %'Tensorlab', @(T, R) cpd(T, R);...
     };
 
