@@ -50,7 +50,7 @@ A_true = A_true./vecnorm(A_true);
 lambda_true = randn(1,R);
 
 % Generate tensor
-T = generate_lowrank_tensor(A_true, lambda_true, n);
+T = generate_lowrank_symtensor(A_true, lambda_true, n);
 
 % Get rank decomposition
 [A_est, lambda_est, stat_] = subspace_power_method(T, L, n, R);
@@ -73,7 +73,7 @@ A_true = A_true./vecnorm(A_true);
 lambda_true = randn(1,R);
 
 % Generate tensor
-T = generate_lowrank_tensor(A_true, lambda_true, n);
+T = generate_lowrank_symtensor(A_true, lambda_true, n);
 
 % Get rank decomposition
 [A_est, lambda_est, stat_] = subspace_power_method(T, L, n, R);
@@ -103,7 +103,7 @@ A_true = A_true./vecnorm(A_true);
 lambda_true = randn(1,R);
 
 % Generate tensor
-T = generate_lowrank_tensor(A_true, lambda_true, n);
+T = generate_lowrank_symtensor(A_true, lambda_true, n);
 
 % Get rank decomposition
 [A_est, lambda_est, stat_] = subspace_power_method(T, L, n, R);
@@ -133,7 +133,7 @@ A_true = A_true./vecnorm(A_true);
 lambda_true = randn(1,R);
 
 % Generate tensor
-T = generate_lowrank_tensor(A_true, lambda_true, n);
+T = generate_lowrank_symtensor(A_true, lambda_true, n);
 
 % Get rank decomposition
 [A_est, lambda_est, stat_] = subspace_power_method(T, L, n, R);
@@ -163,7 +163,7 @@ A_true = A_true./vecnorm(A_true);
 lambda_true = randn(1,R);
 
 % Generate tensor
-T = generate_lowrank_tensor(A_true, lambda_true, n);
+T = generate_lowrank_symtensor(A_true, lambda_true, n);
 
 % Get rank decomposition
 [A_est, lambda_est, stat_] = subspace_power_method(T, L, n, R);
@@ -193,7 +193,7 @@ A_true = A_true./vecnorm(A_true);
 lambda_true = randn(1,R);
 
 % Generate tensor
-T = generate_lowrank_tensor(A_true, lambda_true, n);
+T = generate_lowrank_symtensor(A_true, lambda_true, n);
 
 % Get rank decomposition
 [A_est, lambda_est, stat_] = subspace_power_method(T, L, n, R);
@@ -223,7 +223,7 @@ A_true = A_true./vecnorm(A_true);
 lambda_true = randn(1,R);
 
 % Generate tensor
-T = generate_lowrank_tensor(A_true, lambda_true, n);
+T = generate_lowrank_symtensor(A_true, lambda_true, n);
 
 % Get rank decomposition
 [A_est, lambda_est, stat_] = subspace_power_method(T, L, n, R);
@@ -253,7 +253,7 @@ A_true = A_true./vecnorm(A_true);
 lambda_true = randn(1,R);
 
 % Generate tensor
-T = generate_lowrank_tensor(A_true, lambda_true, n);
+T = generate_lowrank_symtensor(A_true, lambda_true, n);
 
 % Get rank decomposition
 [A_est, lambda_est, stat_] = subspace_power_method(T, L, n, R);
@@ -283,7 +283,7 @@ A_true = A_true./vecnorm(A_true);
 lambda_true = randn(1,R);
 
 % Generate tensor
-T = generate_lowrank_tensor(A_true, lambda_true, n);
+T = generate_lowrank_symtensor(A_true, lambda_true, n);
 
 % Get rank decomposition
 [A_est, lambda_est, stat_] = subspace_power_method(T, L, n, R);
@@ -316,7 +316,7 @@ A_true = A_true./vecnorm(A_true);
 lambda_true = randn(1,R);
 
 % Generate tensor
-T = generate_lowrank_tensor(A_true, lambda_true, n);
+T = generate_lowrank_symtensor(A_true, lambda_true, n);
 
 % Get rank decomposition
 [A_est, lambda_est, stat_] = subspace_power_method(T, L, n, R);
@@ -346,7 +346,7 @@ A_true = A_true./vecnorm(A_true);
 lambda_true = randn(1,R);
 
 % Generate tensor
-T = generate_lowrank_tensor(A_true, lambda_true, n);
+T = generate_lowrank_symtensor(A_true, lambda_true, n);
 
 % Get rank decomposition
 [A_est, lambda_est, stat_] = subspace_power_method(T, L, n, R);

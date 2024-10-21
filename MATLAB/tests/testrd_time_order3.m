@@ -51,7 +51,7 @@ R = Rval(1);
 A_true = randn(L,R) / sqrt(L);
 
 % Generate nD tensor
-T = generate_lowrank_tensor(A_true, n);
+T = generate_lowrank_symtensor(A_true, n);
 
 s = rng;
 
@@ -73,7 +73,7 @@ for j=1:nvals
     A_true = randn(L,R) / sqrt(L);
 
     % Generate nD tensor
-    T = generate_lowrank_tensor(A_true, n);
+    T = generate_lowrank_symtensor(A_true, n);
 
     s = rng;
 
