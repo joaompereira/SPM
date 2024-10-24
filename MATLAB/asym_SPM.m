@@ -1,4 +1,4 @@
-function [varargout] = asym_SPM_v1(T, varargin)
+function [varargout] = asym_SPM(T, varargin)
 % Decompose symmetric even order tensor using subspace power method
 %   ** Usage **
 %       X = subspace_power_method(T, L, n, R, opts)
