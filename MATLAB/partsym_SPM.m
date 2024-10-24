@@ -1,4 +1,4 @@
-function [lambda, factors, symvec, stat] = partsym_SPM(T, varargin)
+function varargout = partsym_SPM(T, varargin)
 % Decompose symmetric even order tensor using subspace power method
 %   ** Usage **
 %       X = subspace_power_method(T, L, n, R, opts)
@@ -326,6 +326,8 @@ function [lambda, factors, symvec, stat] = partsym_SPM(T, varargin)
         i_reord_sym(reord_sym) = 1:nudims;
         symvec = i_reord_sym(symvec);
     end
+
+    varargout = {lambda, factors, symvec, stat};
 
     % factors(dim_order) = factors;
     % 
