@@ -163,6 +163,8 @@ function varargout = partsym_SPM(T, varargin)
                      find(~unord_flats(1, :) & ~unord_flats(2, :))];
     end
 
+    %% Permute dimensions, to make further calculations easier
+
     dim_order(symorder) = dim_order;
     T = permute(T, dim_order);
 
@@ -174,6 +176,7 @@ function varargout = partsym_SPM(T, varargin)
 
     dims = dims(dim_order);
 
+    %% Compute SVD(s) of flattening(s)
     matT_1 = reshape(T, prod(dims(1:m1)), []);
     
     [U1, S, V1] = svd(matT_1, 'econ');
@@ -197,10 +200,13 @@ function varargout = partsym_SPM(T, varargin)
     V1 = V1(:, 1:r);
 
     if ~sym_breaking
+        % If flattening does not break symmetry,
+        % use another flattening to calculate all components that
+        % correspond to each other
         T = permute(T, [1:mc, m1+1:mu, mc+1:m1, mu+1:order]);
         
         matT_2 = reshape(T, prod(dims([1:mc, m1+1:mu])), []);
-        [U2,S2,V2] = svd(matT_2, 'econ');
+        [U2, S2, V2] = svd(matT_2, 'econ');
         U2 = U2(:, 1:r);
         V2 = V2(:, 1:r);
     end
@@ -287,7 +293,7 @@ function varargout = partsym_SPM(T, varargin)
 
         % Solve for lambda
         Ctbeta = (beta'*C_copy)';
-        lambda(k) = 1/(alpha'*Ctbeta);
+        lambda(k) = norm(alpha)*norm(beta)/(alpha'*Ctbeta);%(norm(alpha)*norm(beta))^2
 
         for i=1:nudims
             factors{i}(:,k) = Aks{i}; 
@@ -463,7 +469,11 @@ function [Aks, f, max_shift] = power_method_iteration(U, Aks, nsyms, r)
         Ak_new = UAk * (Ak_old' * UAk)';
         f = Ak_new'* Ak_old;
         if nsyms > 1
-            c = sqrt(1-1/nsyms) * max(1-f/2,sqrt(2*f*max(1-f,0)));
+            if f <= 2/3
+                c = sqrt(1-1/nsyms) * (1-f/2);
+            else
+                c = sqrt(1-1/nsyms) * sqrt(2*f*max(1-f,0));
+            end
             Ak_new = Ak_new + c * Ak_old;
         end
         Ak_new = Ak_new / norm(Ak_new);
