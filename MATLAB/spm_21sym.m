@@ -56,11 +56,10 @@ function [A, B, stat] = spm_21sym(T, R, varargin)
     %% Set options here
     try
         opts = option_parser(varargin, {'maxiter', 5000, @(x) x>0},...
-                                       { 'ntries', 3, @(x) x>0},...
-                                       {'gradtol', 1e-14, @(x) x>0},...
+                                       { 'ntries', 5, @(x) x>0},...
+                                       {'gradtol', 1e-15, @(x) x>0},...
                                        {'ranksel', 1e-4},...
-                                       {   'ftol', 1e-2, @(x) x>0},...
-                                      {'adaptive', true, @(x) x>0});        
+                                       {   'ftol', 1e-2, @(x) x>0});        
     
     catch ME
         if strcmp(ME.identifier,'MATLAB:UndefinedFunction')
@@ -72,7 +71,6 @@ function [A, B, stat] = spm_21sym(T, R, varargin)
 
     % Flatten T
     T = reshape(T, m,[]);
-
 
     [U, D, V] = svd(T, 'econ');
     D = diag(D);
@@ -123,7 +121,7 @@ function [A, B, stat] = spm_21sym(T, R, varargin)
 
             f = Ak' * Ak_new;
 
-            Ak_new = Ak_new/norm(Ak_new);
+            Ak_new = Ak_new / norm(Ak_new);
             err = norm(Ak - Ak_new);
             Ak = Ak_new;
 
@@ -142,9 +140,11 @@ function [A, B, stat] = spm_21sym(T, R, varargin)
               stat.nrr = stat.nrr + 1;
               f_ = f;
               Ak_ = Ak;
+              Bk_ = Bk;
           else
               stat.nrr = stat.nrr + 1;
               Ak = Ak_;
+              Bk = Bk_;
           end
           
         end
