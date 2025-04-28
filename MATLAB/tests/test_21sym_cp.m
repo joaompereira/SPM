@@ -3,7 +3,7 @@ addpath '../helper_functions/'
 addpath(genpath('../other_packages/'))
 
 %x_axis = 10:2:30;
-dim_vals = [200, 200];
+dim_vals = [200, 3];
 symmetries = [2, 1];
 rank_vals = 100;%round(x_axis.^2 / 2)';
 noise_vals = 0;
@@ -18,7 +18,10 @@ order = size(dim_vals,2);
 
 Algs = {
     'partsymSPM' ,@(T, R, symvec) partsym_SPM(T, R, symmetries=symvec);...
-    'sym21SPM' ,@sym21SPM_caller;...
+    'sym21SPM' , alg_caller(@spm_21sym);...
+    ...'sym21SPM top eig' , alg_caller(@spm_21sym_top_eig);...
+    'sym21SPM rk1 approx' , alg_caller(@spm_21sym_rk1_approx);...
+    'sym21SPM rk1 start' , alg_caller(@spm_21sym_rk1_start);...
     %'Tensorlab', @(T, R) cpd(T, R);...
     };
 
@@ -88,6 +91,17 @@ else
     plot(x_axis, log10error,' x');
 
     legend(Algs(:,1))
+
+end
+
+function hf = alg_caller(halg)
+    function [lambda, factors_est] = inner_func(T, R, ~)
+        [A, B] = halg(T, R);
+        lambda = ones(1, R);
+        factors_est = {A, B};
+    end
+    
+    hf = @inner_func;
 
 end
 
