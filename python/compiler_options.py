@@ -2,7 +2,7 @@ import numpy as np
 
 try:
     from numba import njit
-    compiler_decorator = njit
+    compiler_decorator = njit(cache=True)
     NUMBA_COMPILER = True
 
 except ModuleNotFoundError:
