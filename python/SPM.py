@@ -3,6 +3,7 @@ from scipy.linalg import lapack
 from helper_functions import *
 from math import log, sqrt
 from time import time
+
 #import pprofile
 
 def dormqr(side, transpose, qr, tau, a, overwrite_c=0):
@@ -135,7 +136,7 @@ def subspace_power_method(T, d=None, n=None, r=None, **kwargs):
         A[:, k] = Ak
         w[k] = 1. / (alpha.T @ D1alpha)
 
-        if k:
+        if k < r-1:
             # Calculate the new matrix D and the new subspace
             # Use Householder reflection to update V and D
             qr, tau, work, info = lapack.dgeqrf(D1alpha, overwrite_a=1)
