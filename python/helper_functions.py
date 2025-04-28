@@ -137,7 +137,9 @@ def eig2(a):
     V = np.take_along_axis(V, np.expand_dims(ind,-2), axis=-1)
     return D, V
 
-
+def dormqr(side, transpose, qr, tau, a, overwrite_c=0):
+    lwork = lapack.dormqr(side, transpose, qr, tau, a, -1, overwrite_c)[1][0]
+    return lapack.dormqr(side, transpose, qr, tau, a, lwork, overwrite_c)
 
 if __name__ == '__main__':
     T1 = generate_lowrank_tensor(np.ones((3, 5)), lbd=np.arange(5), n=4)

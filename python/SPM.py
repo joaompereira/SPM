@@ -4,12 +4,6 @@ from helper_functions import *
 from math import log, sqrt
 from time import time
 
-#import pprofile
-
-def dormqr(side, transpose, qr, tau, a, overwrite_c=0):
-    lwork = lapack.dormqr(side, transpose, qr, tau, a, -1, overwrite_c)[1][0]
-    return lapack.dormqr(side, transpose, qr, tau, a, lwork, overwrite_c)
-
 @compiler_decorator
 def power_method_iteration(d, n2, V, ntries, maxiter, eigtol, gradtol, ftol):
 
