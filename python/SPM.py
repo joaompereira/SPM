@@ -1,11 +1,10 @@
 import numpy as np
-from scipy.linalg import lapack
 from helper_functions import *
 from math import log, sqrt
 from time import time
 
 @compiler_decorator
-def power_method_iteration(d, n2, V, ntries, maxiter, eigtol, gradtol, ftol):
+def power_method_iteration(d, n2, V, ntries, maxiter, gradtol, ftol):
 
     # C_n from Lemma 4.7
     if n2 <= 4:
@@ -38,15 +37,7 @@ def power_method_iteration(d, n2, V, ntries, maxiter, eigtol, gradtol, ftol):
             fcl = np.maximum(np.minimum(f, 1.), .5)
             clambda = sqrt(fcl * (1 - fcl))
             shift = cn * clambda
-
-            if f < ftol:
-                # Xk was a very bad initialization
-                # This happens very rarely
-                # Initialize it again at random
-                Ak = np.random.randn(d)
-                Ak = Ak / norm(Ak)
-                continue
-
+            
             Ak_new = Ak_new + shift * Ak
             Ak_new = Ak_new / norm(Ak_new)
 
@@ -55,7 +46,7 @@ def power_method_iteration(d, n2, V, ntries, maxiter, eigtol, gradtol, ftol):
             if err < gradtol:
                 break
 
-        if 1 - f < eigtol:
+        if 1 - f < ftol:
             break
         elif tries == 0:
             f_ = f
@@ -77,15 +68,12 @@ def subspace_power_method(T, d=None, n=None, r=None, **kwargs):
 
     assert n % 2 == 0 and n > 0, f'"Argument n={n} is not even an even positive integer';
 
-    pos = lambda x: x>0
-    isbool = lambda x: isinstance(x, bool)
-
     opts = option_parser(kwargs,
                          ('maxiter', 5000, pos),
                          ('ntries', 3, pos),
                          ('gradtol', 1e-14, pos),
                          ('eigtol', 1e-8, pos),
-                         ('ftol', 1e-2 / sqrt(d), pos),
+                         ('ftol', 1e-2, pos),
                          ('w_out', True, isbool))
 
     n2 = n // 2
@@ -116,8 +104,8 @@ def subspace_power_method(T, d=None, n=None, r=None, **kwargs):
 
     for k in range(r):
 
-        Ak = power_method_iteration(d, n2, V.reshape((d ** (n2 -1) , -1)),
-                                    opts.ntries, opts.maxiter, opts.eigtol,
+        Ak = power_method_iteration(d, n2, V.reshape(d ** (n2 -1) , -1),
+                                    opts.ntries, opts.maxiter,
                                     opts.gradtol, opts.ftol) #V[:,k:].copy()
 
         # Calculate power of Ak
@@ -167,6 +155,7 @@ if __name__ == '__main__':
     start = time()
     A_ = subspace_power_method(T, w_out=False)
     print(time()-start)
+    print(np.linalg.norm(T.reshape(-1) - generate_lowrank_tensor(A_, n=n).reshape(-1)) / np.linalg.norm(T.reshape(-1)))
 
     d = 20
     r = 120
@@ -178,7 +167,7 @@ if __name__ == '__main__':
     start = time()
     A_ = subspace_power_method(T, w_out=False)
     print(time()-start)
-
+    print(np.linalg.norm(T.reshape(-1) - generate_lowrank_tensor(A_, n=n).reshape(-1)) / np.linalg.norm(T.reshape(-1)))
     d = 45
     r = 800
     n = 4
@@ -189,6 +178,7 @@ if __name__ == '__main__':
     start = time()
     A_ = subspace_power_method(T, w_out=False)
     print(time() - start)
+    print(np.linalg.norm(T.reshape(-1) - generate_lowrank_tensor(A_, n=n).reshape(-1)) / np.linalg.norm(T.reshape(-1)))
 
     '''with profiler():
         d = 40

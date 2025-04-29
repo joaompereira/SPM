@@ -6,6 +6,8 @@ import timeit
 from math import factorial
 from itertools import permutations
 
+pos = lambda x: x>0
+isbool = lambda x: isinstance(x, bool)
 
 def option_parser(kwargs, *args):
 
