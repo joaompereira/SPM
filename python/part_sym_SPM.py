@@ -17,6 +17,7 @@ def power_method_iteration(V, ntries, maxiter, gradtol, ftol):
         Bk = np.random.randn(n)
         Bk /= np.linalg.norm(Bk)
         V_A = V.reshape(m, n * r)
+        V_B = np.ascontiguousarray(V.transpose((1, 0, 2))).reshape(n, m * r)
         VBk = np.empty((m, r))
         
         for iter in range(maxiter):
@@ -25,8 +26,9 @@ def power_method_iteration(V, ntries, maxiter, gradtol, ftol):
             Bk = np.dot(VAk, np.dot(Bk, VAk))
             Bk /= norm(Bk)
             
-            for k in range(r):
-                VBk[:, k] = np.dot(V[:, :, k], Bk)
+            #for k in range(r):
+            #    VBk[:, k] = np.dot(V[:, :, k], Bk)
+            VBk = np.dot(Bk, V_B).reshape(m, r)
 
             Ak_new = np.dot(VBk, np.dot(Ak, VBk))
 
@@ -151,9 +153,19 @@ def spm_21sym(T, r=None, **kwargs):
 if __name__ == '__main__':
     # Example usage
     
-    m = 100
-    n = 100
+    m = 200
+    n = 200
     r = 100
+    
+    A = np.random.randn(m, r)
+    B = np.random.randn(n, r)
+    
+    T = np.dot(khatri_rao_power(A, 2), B.T).reshape(m, m, n)
+    start = time()
+    A_, B_ = spm_21sym(T, r=r, maxiter=1000, ntries=3, gradtol=1e-10, ftol=1e-5)
+    print("Time taken:", time() - start) 
+    T_ = np.dot(khatri_rao_power(A_, 2), B_.T).reshape(m, m, n)
+    print("Error:", np.linalg.norm(T.reshape(-1) - T_.reshape(-1)) / np.linalg.norm(T.reshape(-1)))
     
     A = np.random.randn(m, r)
     B = np.random.randn(n, r)
