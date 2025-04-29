@@ -1,13 +1,16 @@
 import numpy as np
 
 try:
-    from numba import njit
+    from numba import njit, prange
     compiler_decorator = njit(cache=True)
+    
     NUMBA_COMPILER = True
 
 except ModuleNotFoundError:
     def compiler_decorator(fun):
         return fun
+    
+    prange = range
 
     NUMBA_COMPILER = False
 

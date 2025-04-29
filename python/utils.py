@@ -1,7 +1,7 @@
 import numpy as np
 from argparse import Namespace
 from scipy.linalg import lapack
-from compiler_options import compiler_decorator, dot, norm
+from compiler_options import compiler_decorator, dot, norm, prange
 import timeit
 from math import factorial
 from itertools import permutations

@@ -1,10 +1,12 @@
 import numpy as np
-from helper_functions import *
+from utils import norm, khatri_rao_power, option_parser, \
+                  compiler_decorator, pos, isbool, dormqr, lapack, \
+                  generate_lowrank_tensor, symmetric_indices, dot, eig2
 from math import log, sqrt
 from time import time
 
 @compiler_decorator
-def power_method_iteration(d, n2, V, ntries, maxiter, gradtol, ftol):
+def power_method_iteration(d, n2, Vt, ntries, maxiter, gradtol, ftol):
 
     # C_n from Lemma 4.7
     if n2 <= 4:
@@ -25,8 +27,8 @@ def power_method_iteration(d, n2, V, ntries, maxiter, gradtol, ftol):
             Apow = khatri_rao_power(Ak.reshape((-1, 1)), n2 - 1).reshape(-1)
 
             # Calculate contraction of V with x ^ (n2 - 1)
-            VAk = np.dot(Apow, V).reshape((d, -1))
-            Ak_new = np.dot(VAk, np.dot(Ak, VAk))
+            VAk = np.dot(Vt, Apow).reshape((-1, d))
+            Ak_new = np.dot(np.dot(VAk, Ak), VAk)
             #VAk = dgemv(1., V_, Apow, trans=1).reshape((d, -1))
             #Ak_new = dgemv(1., VAk, dgemv(1., VAk, Ak, trans=1))
 
@@ -104,7 +106,7 @@ def subspace_power_method(T, d=None, n=None, r=None, **kwargs):
 
     for k in range(r):
 
-        Ak = power_method_iteration(d, n2, V.reshape(d ** (n2 -1) , -1),
+        Ak = power_method_iteration(d, n2, V.T.reshape(-1, d ** (n2 -1)),
                                     opts.ntries, opts.maxiter,
                                     opts.gradtol, opts.ftol) #V[:,k:].copy()
 

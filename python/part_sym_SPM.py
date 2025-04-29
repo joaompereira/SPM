@@ -1,14 +1,14 @@
 import numpy as np
-from helper_functions import *
+from utils import norm, khatri_rao_power, option_parser, \
+                  compiler_decorator, prange, pos, isbool, dormqr, lapack
 from scipy.linalg import svd
 from time import time
-from numba import njit
 
 @compiler_decorator
-def power_method_iteration(V, ntries, maxiter, gradtol, ftol):
+def power_method_iteration(Vt, ntries, maxiter, gradtol, ftol):
     
     f_ = 0
-    m, n, r = V.shape
+    r, m, n = Vt.shape
 
     for tries in range(ntries):
         # Initialize Ak and Bk
@@ -16,21 +16,18 @@ def power_method_iteration(V, ntries, maxiter, gradtol, ftol):
         Ak /= np.linalg.norm(Ak)
         Bk = np.random.randn(n)
         Bk /= np.linalg.norm(Bk)
-        V_A = V.reshape(m, n * r)
-        V_B = np.ascontiguousarray(V.transpose((1, 0, 2))).reshape(n, m * r)
-        VBk = np.empty((m, r))
+        V_B = Vt.reshape(r * m, n)
+        VAk = np.empty((n, r))
         
         for iter in range(maxiter):
-            VAk = np.dot(Ak, V_A).reshape(n, r)
-
+            for k in prange(r):
+                VAk[:, k] = np.dot(Ak, Vt[k])
             Bk = np.dot(VAk, np.dot(Bk, VAk))
             Bk /= norm(Bk)
             
-            #for k in range(r):
-            #    VBk[:, k] = np.dot(V[:, :, k], Bk)
-            VBk = np.dot(Bk, V_B).reshape(m, r)
+            VBk = np.dot(V_B, Bk).reshape(r, m)
 
-            Ak_new = np.dot(VBk, np.dot(Ak, VBk))
+            Ak_new = np.dot(np.dot(VBk, Ak), VBk)
 
             f = np.dot(Ak, Ak_new)
 
@@ -114,7 +111,7 @@ def spm_21sym(T, r=None, **kwargs):
 
     for k in range(r):
         
-        Ak, Bk, f = power_method_iteration(np.ascontiguousarray(V.reshape(m, n, r-k)), opts.ntries, 
+        Ak, Bk, f = power_method_iteration(np.ascontiguousarray(V.T.reshape(r-k, m, n)), opts.ntries, 
                                     opts.maxiter, opts.gradtol, opts.ftol)
         
 
