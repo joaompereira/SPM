@@ -1,5 +1,3 @@
-import numpy as np
-
 try:
     from numba import njit, prange
     compiler_decorator = njit(cache=True)
@@ -17,8 +15,8 @@ except ModuleNotFoundError:
 BLAS_DOT = False
 if not NUMBA_COMPILER:
     try:
-        from scipy.linalg.blas import dnrm2 as norm
         from scipy.linalg.blas import ddot as dot
+        from scipy.linalg.blas import dnrm2 as norm
 
         BLAS_DOT = True
     except ModuleNotFoundError:
@@ -26,5 +24,5 @@ if not NUMBA_COMPILER:
 
 
 if not BLAS_DOT:
-    dot = np.dot
-    norm = np.linalg.norm 
+    from numpy import dot
+    from numpy.linalg import norm

@@ -1,12 +1,13 @@
 import numpy as np
 from utils import norm, khatri_rao_power, option_parser, \
-                  compiler_decorator, prange, pos, isbool, dormqr, lapack
+    compiler_decorator, prange, pos, isbool, dormqr, lapack
 from scipy.linalg import svd
 from time import time
 
+
 @compiler_decorator
 def power_method_iteration(Vt, ntries, maxiter, gradtol, ftol):
-    
+
     f_ = 0
     r, m, n = Vt.shape
 
@@ -18,13 +19,13 @@ def power_method_iteration(Vt, ntries, maxiter, gradtol, ftol):
         Bk /= norm(Bk)
         V_B = Vt.reshape(r * m, n)
         VAk = np.empty((n, r))
-        
+
         for iter in range(maxiter):
             for k in prange(r):
                 VAk[:, k] = np.dot(Ak, Vt[k])
             Bk = np.dot(VAk, np.dot(Bk, VAk))
             Bk /= norm(Bk)
-            
+
             VBk = np.dot(V_B, Bk).reshape(r, m)
 
             Ak_new = np.dot(np.dot(VBk, Ak), VBk)
@@ -52,13 +53,6 @@ def power_method_iteration(Vt, ntries, maxiter, gradtol, ftol):
 
     return Ak, Bk, f
 
-def LHR(A, x):
-    return A[:-1, :] + np.outer(x[:-1], -np.dot(x.T, A))
-
-
-def RHR(A, x):
-    A = A - np.outer(np.dot(A, x), x.T)
-    return A[:, :-1]
 
 def spm_21sym(T, r=None, **kwargs):
     """
@@ -79,15 +73,14 @@ def spm_21sym(T, r=None, **kwargs):
         B (ndarray): Scaling factors.
         stat (dict): Various statistics of SPM.
     """
-    
-    opts = option_parser(kwargs,
-                        ('maxiter', 5000, pos),
-                        ('ntries', 3, pos),
-                        ('gradtol', 1e-14, pos),
-                        ('eigtol', 1e-8, pos),
-                        ('ftol', 1e-2, pos),
-                        ('w_out', True, isbool))
 
+    opts = option_parser(kwargs,
+                         ('maxiter', 5000, pos),
+                         ('ntries', 3, pos),
+                         ('gradtol', 1e-14, pos),
+                         ('eigtol', 1e-8, pos),
+                         ('ftol', 1e-2, pos),
+                         ('w_out', True, isbool))
 
     m_, m, n = T.shape
     assert m_ == m, "Tensor T must be symmetric."
@@ -103,17 +96,16 @@ def spm_21sym(T, r=None, **kwargs):
         r = D.shape[0] - np.searchsorted(D[::-1], opts.eigtol)
 
     D1 = np.diag(1.0 / D[:r])
-    V = Vt[:r, :].T
+    V = np.ascontiguousarray(Vt[:r, :]).T
     U = U[:, :r]
 
     A = np.zeros((m, r))
     B = np.zeros((n, r))
 
     for k in range(r):
-        
-        Ak, Bk, f = power_method_iteration(np.ascontiguousarray(V.T.reshape(r-k, m, n)), opts.ntries, 
-                                    opts.maxiter, opts.gradtol, opts.ftol)
-        
+
+        Ak, Bk, f = power_method_iteration(V.T.reshape(r-k, m, n), opts.ntries,
+                                           opts.maxiter, opts.gradtol, opts.ftol)
 
         alphaU = np.dot(Ak, U)
         alphaV = np.dot((Ak.reshape(-1, 1) * Bk.reshape(1, -1)).reshape(-1), V)
@@ -130,9 +122,9 @@ def spm_21sym(T, r=None, **kwargs):
             qr, tau, work, info = lapack.dgeqrf(D1alphaU, overwrite_a=1)
             D1, work, info = dormqr('R', 'T', qr, tau, D1, overwrite_c=1)
             V, work, info = dormqr('R', 'T', qr, tau, V, overwrite_c=1)
-            
+
             V = V[:, 1:]
-            
+
             qr, tau, work, info = lapack.dgeqrf(D1alphaV, overwrite_a=1)
             D1, work, info = dormqr('L', 'N', qr, tau, D1, overwrite_c=1)
             U, work, info = dormqr('R', 'T', qr, tau, U, overwrite_c=1)
@@ -143,33 +135,36 @@ def spm_21sym(T, r=None, **kwargs):
         A[:, k] = Ak
         B[:, k] = lambdak * Bk
 
-
     return A, B
 
 
 if __name__ == '__main__':
     # Example usage
-    
+
     m = 200
     n = 200
     r = 100
-    
+
     A = np.random.randn(m, r)
     B = np.random.randn(n, r)
-    
+
     T = np.dot(khatri_rao_power(A, 2), B.T).reshape(m, m, n)
     start = time()
-    A_, B_ = spm_21sym(T, r=r, maxiter=1000, ntries=3, gradtol=1e-10, ftol=1e-5)
-    print("Time taken:", time() - start) 
+    A_, B_ = spm_21sym(T, r=r, maxiter=1000, ntries=3,
+                       gradtol=1e-10, ftol=1e-5)
+    print("Time taken:", time() - start)
     T_ = np.dot(khatri_rao_power(A_, 2), B_.T).reshape(m, m, n)
-    print("Error:", np.linalg.norm(T.reshape(-1) - T_.reshape(-1)) / np.linalg.norm(T.reshape(-1)))
-    
+    print("Error:", np.linalg.norm(T.reshape(-1) -
+          T_.reshape(-1)) / np.linalg.norm(T.reshape(-1)))
+
     A = np.random.randn(m, r)
     B = np.random.randn(n, r)
-    
+
     T = np.dot(khatri_rao_power(A, 2), B.T).reshape(m, m, n)
     start = time()
-    A_, B_ = spm_21sym(T, r=r, maxiter=1000, ntries=3, gradtol=1e-10, ftol=1e-5)
-    print("Time taken:", time() - start) 
+    A_, B_ = spm_21sym(T, r=r, maxiter=1000, ntries=3,
+                       gradtol=1e-10, ftol=1e-5)
+    print("Time taken:", time() - start)
     T_ = np.dot(khatri_rao_power(A_, 2), B_.T).reshape(m, m, n)
-    print("Error:", np.linalg.norm(T.reshape(-1) - T_.reshape(-1)) / np.linalg.norm(T.reshape(-1)))
+    print("Error:", np.linalg.norm(T.reshape(-1) -
+          T_.reshape(-1)) / np.linalg.norm(T.reshape(-1)))
