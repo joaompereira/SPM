@@ -26,9 +26,5 @@ if not NUMBA_COMPILER:
 
 
 if not BLAS_DOT:
-
     dot = np.dot
-
-    @compiler_decorator
-    def norm(v):
-        return np.sqrt(np.dot(v, v))
+    norm = np.linalg.norm 

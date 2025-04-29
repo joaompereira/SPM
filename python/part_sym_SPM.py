@@ -13,9 +13,9 @@ def power_method_iteration(Vt, ntries, maxiter, gradtol, ftol):
     for tries in range(ntries):
         # Initialize Ak and Bk
         Ak = np.random.randn(m)
-        Ak /= np.linalg.norm(Ak)
+        Ak /= norm(Ak)
         Bk = np.random.randn(n)
-        Bk /= np.linalg.norm(Bk)
+        Bk /= norm(Bk)
         V_B = Vt.reshape(r * m, n)
         VAk = np.empty((n, r))
         
