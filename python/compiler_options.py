@@ -1,3 +1,5 @@
+from warnings import warn
+
 try:
     from numba import njit, prange
     compiler_decorator = njit(cache=True)
@@ -5,6 +7,9 @@ try:
     NUMBA_COMPILER = True
 
 except ModuleNotFoundError:
+
+    warn("The numba package was not found.\nConsider installing it for improved performance.")
+
     def compiler_decorator(fun):
         return fun
     
