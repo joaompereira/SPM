@@ -10,6 +10,7 @@ def power_method_iteration(Vt, ntries, maxiter, gradtol, ftol):
 
     f_ = 0
     r, m, n = Vt.shape
+    stats = []
 
     for tries in range(ntries):
         # Initialize Ak and Bk
@@ -39,6 +40,8 @@ def power_method_iteration(Vt, ntries, maxiter, gradtol, ftol):
             if err < gradtol:
                 # Algorithm converged
                 break
+            
+        stats.append([iter, err, f])
 
         if 1 - f < ftol:
             break
@@ -51,7 +54,7 @@ def power_method_iteration(Vt, ntries, maxiter, gradtol, ftol):
             Ak = Ak_
             Bk = Bk_
 
-    return Ak, Bk, f
+    return Ak, Bk, stats
 
 
 def spm_21sym(T, r=None, **kwargs):
@@ -80,7 +83,8 @@ def spm_21sym(T, r=None, **kwargs):
                          ('gradtol', 1e-14, pos),
                          ('eigtol', 1e-8, pos),
                          ('ftol', 1e-2, pos),
-                         ('w_out', True, isbool))
+                         ('w_out', True, isbool),
+                         ('return_stats', False, isbool))
 
     m_, m, n = T.shape
     assert m_ == m, "Tensor T must be symmetric."
@@ -101,11 +105,15 @@ def spm_21sym(T, r=None, **kwargs):
 
     A = np.zeros((m, r))
     B = np.zeros((n, r))
+    
+    stats = []
 
     for k in range(r):
 
-        Ak, Bk, f = power_method_iteration(V.T.reshape(r-k, m, n), opts.ntries,
+        Ak, Bk, stat = power_method_iteration(V.T.reshape(r-k, m, n), opts.ntries,
                                            opts.maxiter, opts.gradtol, opts.ftol)
+        
+        stats.append([{'niter':item[0], 'err': item[1] , 'f':item[2]} for item in stat])
 
         alphaU = np.dot(Ak, U)
         alphaV = np.dot((Ak.reshape(-1, 1) * Bk.reshape(1, -1)).reshape(-1), V)
@@ -135,8 +143,10 @@ def spm_21sym(T, r=None, **kwargs):
         A[:, k] = Ak
         B[:, k] = lambdak * Bk
 
-    return A, B
-
+    if opts.return_stats:
+        return A, B, stats
+    else:
+        return A, B
 
 if __name__ == '__main__':
     # Example usage
@@ -150,8 +160,8 @@ if __name__ == '__main__':
 
     T = np.dot(khatri_rao_power(A, 2), B.T).reshape(m, m, n)
     start = time()
-    A_, B_ = spm_21sym(T, r=r, maxiter=1000, ntries=3,
-                       gradtol=1e-10, ftol=1e-5)
+    A_, B_, stats = spm_21sym(T, r=r, maxiter=1000, ntries=3,
+                       gradtol=1e-10, ftol=1e-5, return_stats=True)
     print("Time taken:", time() - start)
     T_ = np.dot(khatri_rao_power(A_, 2), B_.T).reshape(m, m, n)
     print("Error:", np.linalg.norm(T.reshape(-1) -
@@ -162,8 +172,8 @@ if __name__ == '__main__':
 
     T = np.dot(khatri_rao_power(A, 2), B.T).reshape(m, m, n)
     start = time()
-    A_, B_ = spm_21sym(T, r=r, maxiter=1000, ntries=3,
-                       gradtol=1e-10, ftol=1e-5)
+    A_, B_, stats = spm_21sym(T, r=r, maxiter=1000, ntries=3,
+                       gradtol=1e-10, ftol=1e-5, return_stats=True)
     print("Time taken:", time() - start)
     T_ = np.dot(khatri_rao_power(A_, 2), B_.T).reshape(m, m, n)
     print("Error:", np.linalg.norm(T.reshape(-1) -
