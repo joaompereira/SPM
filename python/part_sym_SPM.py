@@ -6,57 +6,166 @@ from time import time
 
 
 @compiler_decorator
-def power_method_iteration(Vt, ntries, maxiter, gradtol, ftol):
+def power_method_iteration(Vt, maxiter, gradtol, Ak, Bk):
 
-    f_ = 0
-    r, m, n = Vt.shape
+    r = Vt.shape[0]
+    m = Ak.shape[0]
+    n = Bk.shape[0]
+    V_B = Vt.reshape(r * m, n)
+    V_C = Vt.reshape(r, m * n)
+    
+    for iter in range(maxiter):
+        
+        VBk = np.dot(V_B, Bk).reshape(r, m)
+        Ck = np.dot(VBk, Ak)
+        Ak_new = np.dot(Ck, VBk)
+        
+        f = np.dot(Ak, Ak_new)
+        
+        Ak_new /= norm(Ak_new)
+        Ak = Ak_new
+        
+        VCk = np.dot(Ck, V_C).reshape(m, n)
+        Bk_new = np.dot(Ak, VCk)
+
+        Bk_new /= norm(Bk_new)
+        err = norm(Bk - Bk_new)
+        Bk = Bk_new
+
+        if err < gradtol:
+            # Algorithm converged
+            break
+        
+    return Ak, Bk, iter, err, f
+
+
+def spm_21sym_robust(T, r=None, **kwargs):
+    """
+    Decompose symmetric even order tensor using subspace power method.
+
+    Parameters:
+        T (ndarray): Tensor of dimension L^n.
+        R (int, optional): Tensor rank. If not provided, it will be estimated.
+        kwargs: Various SPM options as key-value pairs.
+            maxiter (int): Maximum number of iterations of power method (default: 5000).
+            ntries (int): Maximum number of tries for initialization (default: 5).
+            gradtol (float): Gradient tolerance (default: 1e-15).
+            ranksel (float): Tolerance for selecting the rank of T (default: 1e-4).
+            ftol (float): Function value tolerance for restarting (default: 1e-2).
+
+    Returns:
+        A (ndarray): L x R matrix where the columns are the rank decomposition of T.
+        B (ndarray): Scaling factors.
+        stat (dict): Various statistics of SPM.
+    """
+
+    opts = option_parser(kwargs,
+                         ('maxiter', 5000, pos),
+                         ('ntries', 3, pos),
+                         ('gradtol', 1e-14, pos),
+                         ('eigtol', 1e-8, pos),
+                         ('ftol', 1e-2, pos),
+                         ('w_out', True, isbool),
+                         ('return_stats', False, isbool),
+                         ('O_version', False, isbool))
+
+    m_, m, n = T.shape
+    assert m_ == m, "Tensor T must be symmetric."
+
+    # Flatten T
+    T = T.reshape(m, -1)
+
+    # Perform SVD
+    U, D, Vt = svd(T, full_matrices=False)
+
+    # Determine tensor rank by the eigenvalues of mat(T)
+    if r is None:
+        r = D.shape[0] - np.searchsorted(D[::-1], opts.eigtol)
+
+    D1 = np.diag(1.0 / D[:r])
+    D1_deflated = D1.copy()
+    Vt = np.ascontiguousarray(Vt[:r, :])
+    Vt_deflated = Vt.copy()
+    U = U[:, :r]
+    O = np.eye(r)
+
+    A = np.zeros((m, r))
+    B = np.zeros((n, r))
+    
     stats = []
 
-    for tries in range(ntries):
-        # Initialize Ak and Bk
-        Ak = np.random.randn(m)
-        Ak /= norm(Ak)
-        Bk = np.random.randn(n)
-        Bk /= norm(Bk)
-        V_B = Vt.reshape(r * m, n)
-        VAk = np.empty((n, r))
-
-        for iter in range(maxiter):
-            for k in prange(r):
-                VAk[:, k] = np.dot(Ak, Vt[k])
-            Bk = np.dot(VAk, np.dot(Bk, VAk))
+    for k in range(r):
+        
+        statsk = []
+        
+        for tries in range(opts.ntries):
+            # Initialize Ak and Bk
+            Ak = np.random.randn(m)
+            Ak /= norm(Ak)
+            Bk = np.random.randn(n)
             Bk /= norm(Bk)
 
-            VBk = np.dot(V_B, Bk).reshape(r, m)
+            Ak, Bk, iter, err, f = power_method_iteration(Vt_deflated, opts.maxiter, opts.gradtol, Ak, Bk)
 
-            Ak_new = np.dot(np.dot(VBk, Ak), VBk)
+            statsk.append(dict(niter=iter, err=err, f=f))
 
-            f = np.dot(Ak, Ak_new)
-
-            Ak_new /= norm(Ak_new)
-            err = norm(Ak - Ak_new)
-            Ak = Ak_new
-
-            if err < gradtol:
-                # Algorithm converged
+            if 1 - f < opts.ftol:
                 break
+            elif tries == 0 or f > f_:
+                f_ = f
+                Ak_ = Ak
+                Bk_ = Bk
+            elif tries == opts.ntries - 1:
+                f = f_
+                Ak = Ak_
+                Bk = Bk_
+                
+        Ak, Bk, iter, err, f = power_method_iteration(Vt, opts.maxiter, opts.gradtol, Ak, Bk)
+
+        statsk.sort(reverse=True, key=lambda stat: stat['f'])
+        stats.append({'niter': iter, 'err': err, 'f': f, 'deflate_stats': statsk})
+
+        if k < r-1:
+            alphaU = np.dot(Ak, U)
             
-        stats.append([iter, err, f])
+            # Update V and D using Householder reflection
+            # Calculate the new matrix D and the new subspace
+            # Use Householder reflection to update V and D
+            if opts.O_version:
+                D1alphaU = np.dot(np.dot(alphaU, O), D1_deflated)
+                D1alphaV = np.dot(D1_deflated, np.dot(Vt_deflated, (Ak.reshape(-1, 1) * Bk.reshape(1, -1)).reshape(-1)))
+                
+                qr, tau, work, info = lapack.dgeqrf(D1alphaU, overwrite_a=1)
+                D1_deflated, work, info = dormqr('R', 'T', qr, tau, D1_deflated, overwrite_c=1)
+                V_deflated, work, info = dormqr('R', 'T', qr, tau, Vt_deflated.T, overwrite_c=1)
+                
+                qr, tau, work, info = lapack.dgeqrf(D1alphaV, overwrite_a=1)
+                D1_deflated, work, info = dormqr('L', 'N', qr, tau, D1_deflated, overwrite_c=1)
+                O, work, info = dormqr('R', 'T', qr, tau, O, overwrite_c=1)
 
-        if 1 - f < ftol:
-            break
-        elif tries == 0 or f > f_:
-            f_ = f
-            Ak_ = Ak
-            Bk_ = Bk
-        elif tries == ntries - 1:
-            f = f_
-            Ak = Ak_
-            Bk = Bk_
-
-    return Ak, Bk, stats
-
-
+                Vt_deflated = V_deflated[:, 1:].T
+                D1_deflated = D1_deflated[1:, 1:]
+                O = O[:, 1:]
+            else:
+                D1alphaU = np.dot(alphaU, D1_deflated)
+                
+                qr, tau, work, info = lapack.dgeqrf(D1alphaU, overwrite_a=1)
+                D1_deflated, work, info = dormqr('R', 'T', qr, tau, D1_deflated, overwrite_c=1)
+                V_deflated, work, info = dormqr('R', 'T', qr, tau, Vt_deflated.T, overwrite_c=1)
+                
+                Vt_deflated = V_deflated[:, 1:].T
+                D1_deflated = D1_deflated[:, 1:]
+                
+        A[:, k] = Ak
+        
+    G = np.square(np.dot(A.T, A))
+    B = np.linalg.solve(G, np.dot(khatri_rao_power(A, 2).T, np.reshape(T, (-1, n)))).T
+    
+    if opts.return_stats:
+        return A, B, stats
+    else:
+        return A, B
+    
 def spm_21sym(T, r=None, **kwargs):
     """
     Decompose symmetric even order tensor using subspace power method.
@@ -109,11 +218,33 @@ def spm_21sym(T, r=None, **kwargs):
     stats = []
 
     for k in range(r):
-
-        Ak, Bk, stat = power_method_iteration(V.T.reshape(r-k, m, n), opts.ntries,
-                                           opts.maxiter, opts.gradtol, opts.ftol)
         
-        stats.append([{'niter':item[0], 'err': item[1] , 'f':item[2]} for item in stat])
+        statsk = []
+        
+        for tries in range(opts.ntries):
+            # Initialize Ak and Bk
+            Ak = np.random.randn(m)
+            Ak /= norm(Ak)
+            Bk = np.random.randn(n)
+            Bk /= norm(Bk)
+
+            Ak, Bk, iter, err, f = power_method_iteration(V.T.reshape(r-k, m, n), opts.maxiter, opts.gradtol, Ak, Bk)
+
+            statsk.append(dict(niter=iter, err=err, f=f))
+
+            if 1 - f < opts.ftol:
+                break
+            elif tries == 0 or f > f_:
+                f_ = f
+                Ak_ = Ak
+                Bk_ = Bk
+            elif tries == opts.ntries - 1:
+                f = f_
+                Ak = Ak_
+                Bk = Bk_
+
+        statsk.sort(reverse=True, key=lambda stat: stat['f'])
+        stats.append(statsk)
 
         alphaU = np.dot(Ak, U)
         alphaV = np.dot((Ak.reshape(-1, 1) * Bk.reshape(1, -1)).reshape(-1), V)
@@ -142,6 +273,9 @@ def spm_21sym(T, r=None, **kwargs):
 
         A[:, k] = Ak
         B[:, k] = lambdak * Bk
+        
+    G = np.square(np.dot(A.T, A))
+    B = np.linalg.solve(G, np.dot(khatri_rao_power(A, 2).T, np.reshape(T, (-1, n)))).T
 
     if opts.return_stats:
         return A, B, stats
@@ -159,9 +293,29 @@ if __name__ == '__main__':
     B = np.random.randn(n, r)
 
     T = np.dot(khatri_rao_power(A, 2), B.T).reshape(m, m, n)
+    
+    print(":: SPM ::")
     start = time()
     A_, B_, stats = spm_21sym(T, r=r, maxiter=1000, ntries=3,
                        gradtol=1e-10, ftol=1e-5, return_stats=True)
+    print("Time taken:", time() - start)
+    T_ = np.dot(khatri_rao_power(A_, 2), B_.T).reshape(m, m, n)
+    print("Error:", np.linalg.norm(T.reshape(-1) -
+          T_.reshape(-1)) / np.linalg.norm(T.reshape(-1)))
+    
+    print(":: Robust SPM ::")
+    start = time()
+    A_, B_, stats = spm_21sym_robust(T, r=r, maxiter=1000, ntries=3,
+                       gradtol=1e-10, ftol=1e-5, return_stats=True)
+    print("Time taken:", time() - start)
+    T_ = np.dot(khatri_rao_power(A_, 2), B_.T).reshape(m, m, n)
+    print("Error:", np.linalg.norm(T.reshape(-1) -
+          T_.reshape(-1)) / np.linalg.norm(T.reshape(-1)))
+    
+    print(":: Robust SPM (O-version) ::")
+    start = time()
+    A_, B_, stats = spm_21sym_robust(T, r=r, maxiter=1000, ntries=3,
+                       gradtol=1e-10, ftol=1e-5, return_stats=True, O_version=True)
     print("Time taken:", time() - start)
     T_ = np.dot(khatri_rao_power(A_, 2), B_.T).reshape(m, m, n)
     print("Error:", np.linalg.norm(T.reshape(-1) -
@@ -171,10 +325,33 @@ if __name__ == '__main__':
     B = np.random.randn(n, r)
 
     T = np.dot(khatri_rao_power(A, 2), B.T).reshape(m, m, n)
+    T_noisy = T + np.random.randn(m, m, n) * 1  # Add noise
+    
+    print(":: SPM ::")
     start = time()
-    A_, B_, stats = spm_21sym(T, r=r, maxiter=1000, ntries=3,
+    A_, B_, stats = spm_21sym(T_noisy, r=r, maxiter=1000, ntries=3,
                        gradtol=1e-10, ftol=1e-5, return_stats=True)
     print("Time taken:", time() - start)
     T_ = np.dot(khatri_rao_power(A_, 2), B_.T).reshape(m, m, n)
     print("Error:", np.linalg.norm(T.reshape(-1) -
           T_.reshape(-1)) / np.linalg.norm(T.reshape(-1)))
+    
+    print(":: Robust SPM ::")
+    start = time()
+    A_, B_, stats = spm_21sym_robust(T_noisy, r=r, maxiter=1000, ntries=3,
+                       gradtol=1e-10, ftol=1e-5, return_stats=True)
+    print("Time taken:", time() - start)
+    T_ = np.dot(khatri_rao_power(A_, 2), B_.T).reshape(m, m, n)
+    print("Error:", np.linalg.norm(T.reshape(-1) -
+          T_.reshape(-1)) / np.linalg.norm(T.reshape(-1)))
+    
+    print(":: Robust SPM (O-version) ::")
+    start = time()
+    A_, B_, stats = spm_21sym_robust(T_noisy, r=r, maxiter=1000, ntries=3,
+                       gradtol=1e-10, ftol=1e-5, return_stats=True, O_version=True)
+    print("Time taken:", time() - start)
+    T_ = np.dot(khatri_rao_power(A_, 2), B_.T).reshape(m, m, n)
+    print("Error:", np.linalg.norm(T.reshape(-1) -
+          T_.reshape(-1)) / np.linalg.norm(T.reshape(-1)))
+
+
