@@ -3,6 +3,7 @@ from utils import norm, khatri_rao_power, option_parser, \
     compiler_decorator, prange, pos, isbool, dormqr, lapack
 from scipy.linalg import svd
 from time import time
+from math import sqrt
 
 
 @compiler_decorator
@@ -22,13 +23,66 @@ def power_method_iteration(Vt, maxiter, gradtol, Ak, Bk):
         
         f = np.dot(Ak, Ak_new)
         
-        Ak_new /= norm(Ak_new)
-        Ak = Ak_new
+        Ak = Ak_new / norm(Ak_new)
         
         VCk = np.dot(Ck, V_C).reshape(m, n)
         Bk_new = np.dot(Ak, VCk)
 
         Bk_new /= norm(Bk_new)
+        err = norm(Bk - Bk_new)
+        Bk = Bk_new
+
+        if err < gradtol:
+            # Algorithm converged
+            break
+        
+    return Ak, Bk, iter, err, f
+
+@compiler_decorator
+def pm_refinement_iteration(Vt, A_, rho, maxiter, gradtol, Ak, Bk):
+
+    k = A_.shape[1] - 1
+    r = Vt.shape[0]
+    m = Ak.shape[0]
+    n = Bk.shape[0]
+    V_B = Vt.reshape(r * m, n)
+    V_C = Vt.reshape(r, m * n)
+    
+    gamma = sqrt(1 - rho ** 2)
+    
+    for iter in range(maxiter):
+        
+        VBk = np.dot(V_B, Bk).reshape(r, m)
+        Ck = np.dot(VBk, Ak)
+        Ak_new = np.dot(Ck, VBk)
+        
+        f = np.dot(Ak, Ak_new)
+        
+        Ak = Ak_new / norm(Ak_new)
+        
+        if k > 0:
+            corr = np.dot(Ak, A_)
+            ucorr = np.abs(corr)
+            ind = np.argmax(ucorr)
+            if ucorr[ind] > rho:
+                Ak -= corr * A_[:, ind]
+                Ak /= norm(Ak)
+                s = np.sign(corr[ind])
+                Ak = gamma * Ak + (rho * s) * A_[:, ind] 
+
+        VCk = np.dot(Ck, V_C).reshape(m, n)
+        Bk_new = np.dot(Ak, VCk)
+        Bk_new /= norm(Bk_new)
+        
+        # corr = np.dot(Bk_new, B_)
+        # ucorr = np.abs(corr)
+        # ind = np.argmax(ucorr)
+        # if ucorr[ind] > rho:
+        #     Bk_new -= corr * B_[:, ind]
+        #     Bk_new /= norm(Bk_new)
+        #     s = np.sign(corr[ind])
+        #     Bk_new = np.sqrt(1 - rho ** 2) * Bk_new + (rho * s) * B_[:, ind]
+        
         err = norm(Bk - Bk_new)
         Bk = Bk_new
 
@@ -65,6 +119,7 @@ def spm_21sym_robust(T, r=None, **kwargs):
                          ('gradtol', 1e-14, pos),
                          ('eigtol', 1e-8, pos),
                          ('ftol', 1e-2, pos),
+                         ('rho', .7, pos),
                          ('w_out', True, isbool),
                          ('return_stats', False, isbool),
                          ('O_version', False, isbool))
@@ -106,7 +161,9 @@ def spm_21sym_robust(T, r=None, **kwargs):
             Bk /= norm(Bk)
 
             Ak, Bk, iter, err, f = power_method_iteration(Vt_deflated, opts.maxiter, opts.gradtol, Ak, Bk)
-
+            
+            # Ak, Bk, iter, err, f = power_method_iteration(Vt, opts.maxiter, opts.gradtol, Ak, Bk)
+            
             statsk.append(dict(niter=iter, err=err, f=f))
 
             if 1 - f < opts.ftol:
@@ -120,9 +177,10 @@ def spm_21sym_robust(T, r=None, **kwargs):
                 Ak = Ak_
                 Bk = Bk_
                 
-        Ak, Bk, iter, err, f = power_method_iteration(Vt, opts.maxiter, opts.gradtol, Ak, Bk)
-
+        Ak, Bk, iter, err, f = pm_refinement_iteration(Vt, A[:, :k], opts.rho, opts.maxiter, opts.gradtol, Ak, Bk)
+        
         statsk.sort(reverse=True, key=lambda stat: stat['f'])
+        #stats.append(statsk)
         stats.append({'niter': iter, 'err': err, 'f': f, 'deflate_stats': statsk})
 
         if k < r-1:
@@ -325,12 +383,12 @@ if __name__ == '__main__':
     B = np.random.randn(n, r)
 
     T = np.dot(khatri_rao_power(A, 2), B.T).reshape(m, m, n)
-    T_noisy = T + np.random.randn(m, m, n) * 1  # Add noise
+    T_noisy = T + 2 * np.random.randn(m, m, n) # Add noise
     
     print(":: SPM ::")
     start = time()
-    A_, B_, stats = spm_21sym(T_noisy, r=r, maxiter=1000, ntries=3,
-                       gradtol=1e-10, ftol=1e-5, return_stats=True)
+    A_, B_, stats = spm_21sym(T_noisy, r=r, maxiter=5000, ntries=3,
+                       gradtol=1e-10, ftol=1e-1, return_stats=True)
     print("Time taken:", time() - start)
     T_ = np.dot(khatri_rao_power(A_, 2), B_.T).reshape(m, m, n)
     print("Error:", np.linalg.norm(T.reshape(-1) -
@@ -338,8 +396,8 @@ if __name__ == '__main__':
     
     print(":: Robust SPM ::")
     start = time()
-    A_, B_, stats = spm_21sym_robust(T_noisy, r=r, maxiter=1000, ntries=3,
-                       gradtol=1e-10, ftol=1e-5, return_stats=True)
+    A_, B_, stats = spm_21sym_robust(T_noisy, r=r, maxiter=5000, ntries=3,
+                       gradtol=1e-10, ftol=1e-1, return_stats=True)
     print("Time taken:", time() - start)
     T_ = np.dot(khatri_rao_power(A_, 2), B_.T).reshape(m, m, n)
     print("Error:", np.linalg.norm(T.reshape(-1) -
@@ -347,8 +405,8 @@ if __name__ == '__main__':
     
     print(":: Robust SPM (O-version) ::")
     start = time()
-    A_, B_, stats = spm_21sym_robust(T_noisy, r=r, maxiter=1000, ntries=3,
-                       gradtol=1e-10, ftol=1e-5, return_stats=True, O_version=True)
+    A_, B_, stats = spm_21sym_robust(T_noisy, r=r, maxiter=5000, ntries=3,
+                       gradtol=1e-10, ftol=1e-1, return_stats=True, O_version=True)
     print("Time taken:", time() - start)
     T_ = np.dot(khatri_rao_power(A_, 2), B_.T).reshape(m, m, n)
     print("Error:", np.linalg.norm(T.reshape(-1) -
