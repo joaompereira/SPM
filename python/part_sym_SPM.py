@@ -65,7 +65,7 @@ def pm_refinement_iteration(Vt, A_, rho, maxiter, gradtol, Ak, Bk):
             ucorr = np.abs(corr)
             ind = np.argmax(ucorr)
             if ucorr[ind] > rho:
-                Ak -= corr * A_[:, ind]
+                Ak -= corr[ind] * A_[:, ind]
                 Ak /= norm(Ak)
                 s = np.sign(corr[ind])
                 Ak = gamma * Ak + (rho * s) * A_[:, ind] 
