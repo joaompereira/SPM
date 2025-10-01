@@ -17,7 +17,11 @@ k = 0;
 ranks = [];
 
 while true
-    left_rank = sv_dimension(dims, subset) - sum(dims(subset>0));
+    subset_dims = dims(subset>0);
+    left_rank = sv_dimension(dims, subset) - sum(subset_dims-1) - 1;
+    if length(subset_dims) == 2 && all(subset(subset>0) == 1) && min(subset_dims) == 2
+        left_rank = left_rank + 1;
+    end
     right_rank = sv_dimension(dims, nsyms - subset);
     flat_rank = min(left_rank, right_rank);
 
