@@ -1,7 +1,5 @@
-function [lambda,factors_norm,err] = tensorlab_sd_111(T, r)
-    % U = randn(size(T,1), r);
-    % V = randn(size(T,2), r);
-    % W = randn(size(T,3),r);
+function [lambda,factors_norm] = tensorlab_sd_111(T, r)
+
     options = struct;
     options.Algorithm = @cpd3_sd;
     sol = cpd(T,r,options);
@@ -11,9 +9,6 @@ function [lambda,factors_norm,err] = tensorlab_sd_111(T, r)
     A_ = A./vecnorm(A);
     B_ = B./vecnorm(B);
     C_ = C./vecnorm(C);
-    factors = {A,B,C};
-    T_est = generate_lowrank_tensor(ones(1,double(r)),factors{:}, [1,1,1]);
-    err = norm(T-T_est,'fro');
     lambda = vecnorm(A).*vecnorm(B).*vecnorm(C);
     factors_norm = {A_,B_,C_};
 end

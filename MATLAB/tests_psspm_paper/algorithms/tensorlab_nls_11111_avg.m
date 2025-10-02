@@ -1,4 +1,4 @@
-function [lambda,newfactors,err] = tensorlab_nls_11111_avg(T, r)
+function [lambda_new,newfactors] = tensorlab_nls_11111_avg(T, r)
     n  = size(T,1);
     k = size(T,5);
     model=struct;
@@ -29,6 +29,5 @@ function [lambda,newfactors,err] = tensorlab_nls_11111_avg(T, r)
     newfactors = {newfactor_1,sol{2}};
     
     lambda = vecnorm(sol_old{1}).*vecnorm(sol_old{2}).*vecnorm(sol_old{3}).*vecnorm(sol_old{4}).*vecnorm(sol_old{5});
-    T_recovered = generate_lowrank_tensor(lambda.*sign(sol{1}(1,:)).*sign(sol{5}(1,:)).*sign(sol{3}(1,:)).*sign(sol{4}(1,:)), newfactors{:},[4,1]);
-    err = norm(T-T_recovered,'fro');
+    lambda_new = lambda.*sign(sol_old{1}(1,:)).*sign(sol_old{3}(1,:)).*sign(sol_old{4}(1,:)).*sign(sol_old{5}(1,:));
 end

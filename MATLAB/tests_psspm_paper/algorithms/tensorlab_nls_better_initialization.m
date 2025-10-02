@@ -1,6 +1,4 @@
 function [A,B,filler] = tensorlab_nls_better_initialization(T, r)
-    % n  = size(T,1);
-    % k = size(T,3);
     model=struct;
     [U,V,~] = svd_ortho(T,r);
     model.variables.u=U;

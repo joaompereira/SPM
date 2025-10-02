@@ -1,0 +1,21 @@
+function [lambda,factors_norm] = tensorlab_minf_111(T, r)
+    [n,m,l] = size(T);
+    model=struct;
+    model.variables.u=randn(n,r);
+    model.variables.v=randn(m,r);
+    model.variables.w = randn(l,r);
+    model.factors.U='u';
+    model.factors.V='v';
+    model.factors.W = 'w';
+    model.factorizations.myfac.data = T;
+    model.factorizations.myfac.cpd={'U','V','W'};
+    sol = ccpd_minf(model);
+    A = sol{1};
+    B = sol{2};
+    C = sol{3};
+    A_ = A./vecnorm(A);
+    B_ = B./vecnorm(B);
+    C_ = C./vecnorm(C);
+    lambda = vecnorm(A).*vecnorm(B).*vecnorm(C);
+    factors_norm = {A_,B_,C_};
+end

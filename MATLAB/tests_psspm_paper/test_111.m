@@ -2,10 +2,9 @@
 clearvars
 clc
 
-addpath(pwd)
+addpath('../')
 addpath(pwd+"/algorithms")
-addpath(pwd+"/helper_functions")
-
+addpath("../helper_functions")
 
 
 dim_vals = repmat(100,1,40);
@@ -14,11 +13,13 @@ nvals = size(dim_vals,2);
 
 
 Algs = {
-    'PSSPM' ,@(T, R) PSSPM_111(T,'rank',R);...
+    'PSSPM' ,@(T, R) asym_SPM(T,'rank',R);...
     'ALS',@(T,R) tensorlab_als_111(T,R);...
     'SD',@(T,R) tensorlab_sd_111(T,R);...
     'SGSD',@(T,R) tensorlab_sgsd_111(T,R);...
     'Jennrich',@(T,R) tensorlab_gevd_111(T,R);...
+    'NLS', @(T,R) tensorlab_nls_111(T,R);...
+    'MINF', @(T,R) tensorlab_minf_111(T,R);
     };
 
 time = zeros(nvals,size(Algs,1));
@@ -47,10 +48,11 @@ for i=1:nvals
 
     for l=1:size(Algs,1)
         tic
-        l
-        [lambda, factors, err] = Algs{l,2}(T, r);
+        [lambda, factors] = Algs{l,2}(T, r);
         time(i, l) = toc;
         factorcos(i,l) = 1/3*(norm_reorder_cosine_sim(true_factors{1},factors{1}) +norm_reorder_cosine_sim(true_factors{2},factors{2})+norm_reorder_cosine_sim(true_factors{3},factors{3})) ;
+        T_est = generate_lowrank_tensor(lambda,factors{:}, [1,1,1]);
+        err = norm(T-T_est,'fro');
         logerror(i, l) = log10(err);
 
     end
@@ -59,3 +61,6 @@ end
 
 filename = 'compare_111_100*3_80';
 save(filename, "logerror","factorcos","time")
+
+
+

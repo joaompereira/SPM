@@ -1,4 +1,4 @@
-function [lambda,factors_norm,err] = tensorlab_nls_41(T, r)
+function [lambda,factors_norm] = tensorlab_nls_41(T, r)
     n  = size(T,1);
     k = size(T,5);
     model=struct;
@@ -13,10 +13,6 @@ function [lambda,factors_norm,err] = tensorlab_nls_41(T, r)
     B = sol{2};
     A_ = A./vecnorm(A);
     B_ = B./vecnorm(B);
-    factors = {A,B};
-    T_est = generate_lowrank_tensor(ones(1,r),factors{:}, [4,1]);
-    err = norm(T-T_est,'fro');
-
     lambda = vecnorm(A).^4.*vecnorm(B);
     factors_norm = {A_,B_};
 end

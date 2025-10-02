@@ -2,9 +2,9 @@
 
 clearvars
 clc
-addpath(pwd)
+addpath('../')
 addpath(pwd+"/algorithms")
-addpath(pwd+"/helper_functions")
+addpath("../helper_functions")
 
 rng(1,"twister")
 

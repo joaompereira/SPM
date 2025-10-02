@@ -10,6 +10,8 @@ Algs = {
     'SD',@(T,R) tensorlab_sd_111(T,R);...
     'SGSD',@(T,R) tensorlab_sgsd_111(T,R);...
     'Jennrich',@(T,R) tensorlab_gevd_111(T,R);...
+    'NLS', @(T,R) tensorlab_nls_111(T,R);...
+    'MINF', @(T,R) tensorlab_minf_111(T,R);
     };
 
 
@@ -23,6 +25,9 @@ colors = [
     0,  0.5,    0;    % green
     1,  0.5,    0;    % orange
     0.5,  0,  0.5;    % purple
+    0,    1,    1;    % cyan
+    1, 0.84,    0;    % gold
+
 ];
 
 hold on;
