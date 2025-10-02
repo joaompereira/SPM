@@ -232,10 +232,7 @@ function varargout = partsym_SPM(T, varargin)
 
     for k = r:-1:1
           
-        f = power_method(U1, uflats(1,:), k);
-
-        %log10(1+1e-14-f)
-        
+        f = power_method(U1, uflats(1,:), k);        
         %% Find right-side vectors by using the second flattening
         if sym_breaking
             if any(~uflats)
@@ -250,13 +247,9 @@ function varargout = partsym_SPM(T, varargin)
             Akpow = tensor_product(Aks, nsyms .* mask);
             U_half = Akpow' * reshape(U2, length(Akpow), []);
             U_half = reshape(U_half, [], r);
-            [v, ~] = eigs(U_half * U_half', 1, 1+1e-12);%, 1+1e-12
-            %[v, ~] = svds(U_half, 1);
-            %[v, ~] = svds(reshape(U_half, [], r), 1, 1+1e-12);
+            [v, ~] = eigs(U_half * U_half', 1, 1+1e-12);
             mask = ~ufb(1,:) & ufb(2,:);
             f_c = power_method(v, nsyms .* mask, 1);
-
-            %log10(1+1e-14-f_c)
 
             if order > mu
                 Akpow = tensor_product(Aks, nsyms .* mask);
@@ -265,8 +258,6 @@ function varargout = partsym_SPM(T, varargin)
                 [v, ~] = eigs(U_half * U_half', 1, 1+sqrt(eps));
                 mask = ~ufb(1,:) & ~ufb(2,:);
                 f_c = power_method(v, nsyms .* mask, 1);
-
-                %log10(1+1e-14-f_c)
             end
         else
             mask = ufb(1,:) & ~ufb(2,:);
@@ -287,33 +278,24 @@ function varargout = partsym_SPM(T, varargin)
             end
         end
         
-        
         alpha = (tensor_product(Aks, uflats(1,:))'* U1_copy)';
         beta = (tensor_product(Aks, nsyms - uflats(1,:))'* V1)';
 
         % Solve for lambda
         Ctbeta = (beta'*C_copy)';
-        lambda(k) = norm(alpha)*norm(beta)/(alpha'*Ctbeta);%(norm(alpha)*norm(beta))^2
+        lambda(k) = norm(alpha)*norm(beta)/(alpha'*Ctbeta);
 
         for i=1:nudims
             factors{i}(:,k) = Aks{i}; 
         end
 
         if k > 1
-
-            % Calpha = C*alpha;
-
+            %% Deflation step
             % Calculate the new matrix D and the new subspace
             x = get_hh_reflector((beta'*C)');
 
             C = RHR(C,x);
             U1 = RHR(U1,x);
-
-            % x = get_hh_reflector(Calpha);
-
-            % C = LHR(C,x);
-            % V1 = RHR(V1,x);
-
 
 
         end
@@ -334,16 +316,6 @@ function varargout = partsym_SPM(T, varargin)
     end
 
     varargout = {lambda, factors, symvec, stat};
-
-    % factors(dim_order) = factors;
-    % 
-    % if nargout==1
-    %     factors{1} = factors{1} .* lambda;
-    %     varargout = {factors};
-    % else
-    %     varargout = {lambda, factors};
-    % end
-    % if nargout==3; varargout{3} = stat; end
 
     function f = power_method(U, nsyms, r)
 
