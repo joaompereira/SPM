@@ -1,4 +1,4 @@
-function [A, B, stat] = spm_21sym(T, R, varargin)
+function [A, B, stat] = MSPM_21sym(T, R, varargin)
 % Decompose symmetric even order tensor using subspace power method
 %   ** Usage **
 %       X = subspace_power_method(T, L, n, R, opts)

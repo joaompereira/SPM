@@ -1,4 +1,4 @@
-function [varargout] = asym_SPM(T, varargin)
+function [varargout] = MSPM_asym(T, varargin)
 % Decompose symmetric even order tensor using subspace power method
 %   ** Usage **
 %       X = subspace_power_method(T, L, n, R, opts)
@@ -94,12 +94,6 @@ function [varargout] = asym_SPM(T, varargin)
                  find(~flats(1, :) & ~flats(2, :))];
     
     T = permute(T, dim_order);
-
-    %i_dim_order(dim_order) = 1:order;
-
-    %size(T)
-    %dims(dim_order)
-    %dims(i_dim_order)
 
     dims = dims(dim_order);
 

@@ -16,8 +16,8 @@ noise_vals = noise_vals + 0*dim_vals;
 nvals = size(dim_vals,1);
 
 Algs = {
-    'psym SPM' ,ps_sym_wrapper(order);...
-    'sym SPM',@(T, R) subspace_power_method(T, [], order, R);...
+    'MSPM' ,MSPM_sym_wrapper(order);...
+    'SPM',@(T, R) subspace_power_method(T, [], order, R);...
     };
 
 time = zeros(nvals,size(Algs,1));
@@ -86,10 +86,10 @@ else
 
 end
 
-function hf = ps_sym_wrapper(order)
+function hf = MSPM_sym_wrapper(order)
     hf = @inner;
     function [A_est, lambda] = inner(T, R)
-        [lambda, A_est] = partsym_SPM(T, R, symmetries=ones(1, order), gradtol=1e-14);
+        [lambda, A_est] = multiSPM(T, R, symmetries=ones(1, order), gradtol=1e-14);
         A_est = A_est{1};
     end
 end

@@ -1,4 +1,4 @@
-function varargout = partsym_SPM(T, varargin)
+function varargout = multiSPM(T, varargin)
 % Decompose symmetric even order tensor using subspace power method
 %   ** Usage **
 %       X = subspace_power_method(T, L, n, R, opts)

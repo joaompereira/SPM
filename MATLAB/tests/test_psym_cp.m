@@ -17,8 +17,7 @@ nvals = size(dim_vals,1);
 order = size(dim_vals,2);
 
 Algs = {
-    'SPM v1' ,@(T, R, symvec) partsym_SPM(T, R, symmetries=symvec);...
-    %'Tensorlab', @(T, R) cpd(T, R);...
+    'MSPM' ,@(T, R, symvec) multiSPM(T, R, symmetries=symvec);...
     };
 
 time = zeros(nvals,size(Algs,1));
