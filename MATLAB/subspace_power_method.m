@@ -15,19 +15,16 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
 %           eigenvalues of mat(T))
 %     opts: Various SPM options, given as a struct or Parameter/Value pairs
 %           Options include
-%            ntries: Maximum number of iterations of power method
-%           gradtol: Gradient tolerance (the power method finishes if the
-%                    norm of the gradient is smaller than this value)
 %            eigtol: Tolerance for selecting the rank of T using the
 %                    eigenvalues (when R is not provided)
-%              ftol: If the function value (in the power method) is less
-%                    than this value, then restart x. This is useful when
-%                    rank(T)<L and the first guess for x is almost
-%                    orthogonal to the span of the a_i. Without this check
-%                    the convergence when this happened would be very slow
 %          adaptive: Flag indicating if using adaptive shifts (depending on
 %                    current function value) or fixed. Defaults to true.
-%                    
+%           gradtol: Gradient tolerance (the power method finishes if the
+%                    norm of the gradient is smaller than this value)
+%           frestol: If the function value after the power method is
+%                    less than 1 - frestol, restart the power method.                    
+%            ntries: Maximum number of iterations of power method
+%
 %
 %   ** OUTPUT **
 %        X: L x R matrix where the columns are the rank decomposition of T
@@ -40,10 +37,10 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
 
 % Reference:
 % J. Kileel, J. M. Pereira, Subspace power method for symmetric tensor
-%                           decomposition
+%                           decomposition, Numerical Algorithms
 % https://github.com/joaompereira/SPM
 % 
-% version 1.2 (07/17/2024) - MIT License
+% version 1.3 (10/14/2025) - MIT License
     
     if nargin<2 || isempty(L); L = size(T,1); end
     if nargin<3 || isempty(n); n = round(log(numel(T))/log(L)); end
@@ -59,11 +56,10 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
         opts = option_parser(varargin, {'maxiter', 5000, @(x) x>0},...
                                        { 'ntries', 3, @(x) x>0},...
                                        {'gradtol', 1e-14, @(x) x>0},...
-                                       {'ranksel', 1e-4},...
-                                       {   'ftol', 1e-2, @(x) x>0},...
-                                       {'frestol', 1e-2/sqrt(L), @(x) x>0},...
+                                       { 'eigtol', 1e-4},...
+                                       {'frestol', 1e-2, @(x) x>0},...
                                       {'adaptive', true, @(x) x>0});        
-    
+
     catch ME
         if strcmp(ME.identifier,'MATLAB:UndefinedFunction')
             setup
@@ -104,7 +100,7 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
         % Determine tensor rank by the eigenvalues of mat(T)
         if isempty(R)
             typical = mean(abs(D).^2) / mean(abs(D));
-            R = sum(abs(D) > opts.ranksel * typical);
+            R = sum(abs(D) > opts.eigtol * typical);
         end
         
         D1 = diag(1./D(1:R));
@@ -113,8 +109,7 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
         V = V(findsym_l, :);
         
         U = symU(:,1:R)./symindscale_r;
-        U = U(findsym_r, :);
-        
+        U = U(findsym_r, :);    
         
     else
         [symind, findsym, symindscale] = symmetric_indices(L, n2);
@@ -129,7 +124,7 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
         % Determine tensor rank by the eigenvalues of mat(T)
         if isempty(R)
             typical = mean(abs(D).^2) / mean(abs(D));
-            R = sum(abs(D) > opts.ranksel * typical);
+            R = sum(abs(D) > opts.eigtol * typical);
         end
 
         D1 = diag(1./D(1:R));
@@ -144,7 +139,7 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
         lambda = zeros(1,R);
     end
 
-    % C_n from Lemma 4.7
+    % C_n from Lemma 4.4
     cn = sqrt((n2-1)/n2);
     
     lap = toc(timer);
@@ -161,7 +156,7 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
         for tries = 1:opts.ntries
           
           % Initialize Xk
-          Ak = randn(L,1);
+          Ak = reshape(randn(1, L^(n2-1)) * V_, L, k) * randn(k, 1);
           Ak = Ak/norm(Ak);
         
           for iter = 1:opts.maxiter
@@ -190,29 +185,22 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
             end
             shift = clambda * cn;
 
-            if f < opts.frestol
-                % Xk was not a good initialization
-                % Initialize it again at random
-                Ak = randn(L,1);
-                Ak = Ak/norm(Ak);
-            else
-                % Shifted power method
-                Ak_new = Ak_new + shift*Ak;
-                Ak_new = Ak_new/norm(Ak_new);
+            % Shifted power method
+            Ak_new = Ak_new + shift*Ak;
+            Ak_new = Ak_new/norm(Ak_new);
 
-                if norm(Ak - Ak_new) < opts.gradtol
-                    % Algorithm converged
-                    Ak = Ak_new;
-                    break
-                else
-                    Ak = Ak_new;
-                end
+            if norm(Ak - Ak_new) < opts.gradtol
+                % Algorithm converged
+                Ak = Ak_new;
+                break
+            else
+                Ak = Ak_new;
             end
           end 
           
           stat.avgiter = stat.avgiter + iter;
           
-          if 1-f<opts.ftol
+          if 1-f<opts.frestol
              break
           elseif tries==1 || f>f_
               stat.nrr = stat.nrr + 1;
@@ -247,22 +235,17 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
             % Solve for lambda
             D1alphaU = D1*alphaU;
             D1alphaV = (alphaV * D1)';
-            lambdak = 1/(alphaV*D1alphaU);
+            lambdak = norm(alphaU)*norm(alphaV)/(alphaV*D1alphaU);
 
             if k > 1
                 % Calculate the new matrix D and the new subspace
 
                 % Use Householder reflection to update V and D
-                y = (sign(D1alphaU(k))/norm(D1alphaU))*D1alphaU;
-                xk = sqrt(1+y(k));
-                x = [y(1:k-1)/xk;xk];
-
+                x = get_hh_reflector(D1alphaU);
                 D1 = LHR(D1,x);
                 V = RHR(V,x);
                 
-                y = (sign(D1alphaV(k))/norm(D1alphaV))*D1alphaV;
-                xk = sqrt(1+y(k));
-                x = [y(1:k-1)/xk;xk];
+                x = get_hh_reflector(D1alphaV);
                 
                 D1 = RHR(D1,x);
                 U = RHR(U,x);
@@ -282,15 +265,13 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
 
             % Solve for lambda
             D1alpha = D1*alpha;
-            lambdak = 1/(alpha'*D1alpha);
+            lambdak = norm(alpha)^2/(alpha'*D1alpha);
 
             if k > 1
                 % Calculate the new matrix D and the new subspace
 
                 % Use Householder reflection to update V and D
-                y = (sign(D1alpha(k))/norm(D1alpha))*D1alpha;
-                xk = sqrt(1+y(k));
-                x = [y(1:k-1)/xk;xk];
+                x = get_hh_reflector(D1alpha);
 
                 D1 = RHR(LHR(D1,x),x);
 
@@ -304,8 +285,11 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
         if nargout <= 1
             if mod(n, 2) || lambdak >= 0
                 A(:,k) = Ak*nthroot(lambdak, n);
+            else
+                warning('Negative lambda obtained at k=%d, setting to absolute value', k)
+                A(:,k) = Ak*nthroot(-lambdak, n);
             end
-            
+            lambda(k) = 1;
         else
             A(:,k) = Ak;
             lambda(k) = lambdak;
@@ -326,13 +310,26 @@ function [A, varargout] = subspace_power_method(T, L, n, R, varargin)
         
 end
 
+function y = get_hh_reflector(y)
+% Get vector for Householder reflection
+%    The last column of the corresponding Householder reflection, is a 
+%    multiple of the input y.
+
+    norm_y = norm(y);
+    y(end) = y(end) + norm_y*sign(y(end));
+    y = y / sqrt(abs(y(end))*norm_y);
+
+end
+
 function A = LHR(A,x)
+% Apply Householder reflection from the left
 
 A = A(1:end-1, :) + x(1:end-1) * (-x'*A);
 
 end
 
 function A =  RHR(A,x)
+% Apply Householder reflection from the right
 
 A = A - (A*x)*x';
 A = A(:, 1:end-1);
