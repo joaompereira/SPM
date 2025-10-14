@@ -10,17 +10,22 @@ https://arxiv.org/abs/1912.04007), arXiv:1912.04007
 
 ## Matlab
 
-### Required External Packages
+### Installation
 
-To compare performance with other tensor decomposition packages, 
-and reproduce the results obtained in the paper, the users will have to install
-and download external packages themselves. An exception to this is the implementation
-of the FOOBI algorithm, from [**Fourth-Order Cumulant-Based Blind Identification
-of Underdetermined Mixtures**](https://ieeexplore.ieee.org/document/4203062),
-for which we did not find a MATLAB implementation,
-and implemented ourselves. If you need assistance setting this up, you can
-send an e-mail to [**jpereira@impa.br**](mailto:jpereira@impa.br).
-A README for the installation of other packages may also be added in the future.  
+To install you just need to add the folders
+`MATLAB\` and `MATLAB\helper_functions\` to the MATLAB path. Alternatively, you may run the file `MATLAB\setup.m`.
+
+### Reproducing results of *Subspace power method for symmetric tensor decomposition*
+
+To reproduce all the results in [*Subspace power method for symmetric tensor decomposition*](
+https://doi.org/10.1007/s11075-025-02165-y), you must first
+ - download and install external packages;
+ - download the ICA dataset.
+
+After these steps, run the file `MATLAB\tests\run_SPM_paper.m`. This will generate the figures in the paper in the `results` folder. If you need assistance setting this up, feel free to open an issue or send an e-mail to [**jpereira@uga.edu**](mailto:jpereira@uga.edu).
+
+#### Required External Packages
+
 The following are required packages:
 
 - [**TensorLAB**](http://www.tensorlab.net/)
@@ -31,16 +36,10 @@ The following are required packages:
 
 - [**GPCA-Voting**](http://people.eecs.berkeley.edu/~yang/software/softwarepage.html) (GPCA only)
 
-### Installation
+#### Datasets
 
-To install you just need to add the folders
-`MATLAB\` and `MATLAB\helper_functions\` to the MATLAB path. Alternatively, you may run the file `MATLAB\setup.m`.
-
-### Reproducibility
-
-- To reproduce the results in [*Subspace power method for symmetric tensor
-decomposition*](
-https://arxiv.org/abs/1912.04007), run the file `MATLAB\tests\run_SPM_paper.m`.
+To reproduce the ICA experiment in the paper, you need to download the ICA dataset at
+- [https://bnci-horizon-2020.eu/database/data-sets/013-2015/Subject01_s1.mat](https://bnci-horizon-2020.eu/database/data-sets/013-2015/Subject01_s1.mat)
 
 ## Python
 
@@ -54,5 +53,7 @@ https://arxiv.org/abs/1912.04007), run the file `MATLAB\tests\run_SPM_paper.m`.
   
 ### Installation
 
-To install you just need to copy the python files, and from SPM.py, import the method `subspace_power_method`.
-Additional methods (such as `generate_lowrank_tensor`) are also available which can be useful for testing SPM.
+To install you just need to copy the python files, and from 
+`SPM.py`, import the method `subspace_power_method`.
+Additional methods (such as `generate_lowrank_tensor`)
+are also available which can be useful for testing SPM.
