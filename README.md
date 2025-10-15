@@ -22,23 +22,27 @@ https://doi.org/10.1007/s11075-025-02165-y), you must first
  - download and install external packages;
  - download the ICA dataset.
 
-After these steps, run the file `MATLAB\tests\run_SPM_paper.m`. This will generate the figures in the paper in the `results` folder. If you need assistance setting this up, feel free to open an issue or send an e-mail to [**jpereira@uga.edu**](mailto:jpereira@uga.edu).
+After these steps, run the file `MATLAB\tests_spm_paper\run_SPM_paper_tests.m`. This will generate the figures in the paper in the `results` folder. If you need assistance setting this up, feel free to open an issue or send an e-mail to [**jpereira@uga.edu**](mailto:jpereira@uga.edu).
 
-#### Required External Packages
+### Reproducing results of *Multi-subspace power method for decomposing all tensors*
+
+To reproduce all the results in [*Multi-subspace power method for decomposing all tensors*](), you must first download and install Tensorlab (see below). After that, run the file `MATLAB\tests_mspm_paper\run_MSPM_paper_tests.m`. This will generate the figures in the paper in the `results` folder. If you need assistance setting this up, feel free to open an issue or send an e-mail to [**jpereira@uga.edu**](mailto:jpereira@uga.edu).
+
+### Required External Packages
 
 The following are required packages:
 
-- [**TensorLAB**](http://www.tensorlab.net/)
+- [**TensorLAB**](http://www.tensorlab.net/) (SPM and MSPM papers)
 
-- [**Low rank Symmetric Tensor Approximations code**](https://mathweb.ucsd.edu/~njw/CODES/gpstd/symtensor_decm_aprx.html)
+- [**Low rank Symmetric Tensor Approximations code**](https://mathweb.ucsd.edu/~njw/CODES/gpstd/symtensor_decm_aprx.html) (SPM paper)
 
 - [**GPCA-PDA**](http://www.vision.jhu.edu/gpca.htm) (GPCA only)
 
 - [**GPCA-Voting**](http://people.eecs.berkeley.edu/~yang/software/softwarepage.html) (GPCA only)
 
-#### Datasets
+### Datasets
 
-To reproduce the ICA experiment in the paper, you need to download the ICA dataset at
+To reproduce the ICA experiment in the SPM paper, you need to download the ICA dataset at
 - [https://bnci-horizon-2020.eu/database/data-sets/013-2015/Subject01_s1.mat](https://bnci-horizon-2020.eu/database/data-sets/013-2015/Subject01_s1.mat)
 
 ## Python
