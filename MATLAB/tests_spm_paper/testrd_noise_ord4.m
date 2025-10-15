@@ -33,7 +33,7 @@ average_correlation = 1/2;
 alpha=sqrt(average_correlation/(1-average_correlation));
 
 A_true = (randn(L,R) + alpha) / sqrt(L);
-T_clean = generate_lowrank_tensor(A_true, n);
+T_clean = generate_lowrank_symtensor(A_true, n);
 %gamma = norm(T_clean(:)) / sqrt(L^3 / 6);
 
 % Time of execution and estimate error for different algorithms and (L,R)

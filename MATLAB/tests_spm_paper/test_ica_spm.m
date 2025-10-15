@@ -36,7 +36,7 @@ r = 64;
 
 [A, lambda] = subspace_power_method(T, n, d, r, 'ntries', 5, 'ftol', 1e-8);
 
-fprintf("L2 error: %f\n", norm(reshape(T, [], 1) - reshape(generate_lowrank_tensor(A, lambda, d), [], 1)) / norm(reshape(T, [], 1)))
+fprintf("L2 error: %f\n", norm(reshape(T, [], 1) - reshape(generate_lowrank_symtensor(A, lambda, d), [], 1)) / norm(reshape(T, [], 1)))
 
 SPM_icasig = ((A'*A + 0.01*eye(r)) \ A') * X;
 

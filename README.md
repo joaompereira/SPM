@@ -5,8 +5,7 @@ Implementations of the subspace power method and multi SPM, in MATLAB and Python
 - J. Kileel, J. M. Pereira,
 [**Subspace power method for symmetric tensor
 decomposition**](
-https://doi.org/10.1007/s11075-025-02165-y), Numerical Algorithms, 2025. 
-
+https://doi.org/10.1007/s11075-025-02165-y), Numerical Algorithms, 2025.
 - K. Wang, J. M. Pereira, J. Kileel, A. Seigal, **Multi-subspace power method for decomposing all tensors**, 2025.
 
 ## Matlab
@@ -20,8 +19,9 @@ To install you just need to add the folders
 
 To reproduce all the results in [*Subspace power method for symmetric tensor decomposition*](
 https://doi.org/10.1007/s11075-025-02165-y), you must first
- - download and install external packages;
- - download the ICA dataset.
+
+- download and install external packages;
+- download the ICA dataset.
 
 After these steps, run the file `MATLAB\tests_spm_paper\run_SPM_paper_tests.m`. This will generate the figures in the paper in the `results` folder. If you need assistance setting this up, feel free to open an issue or send an e-mail to [**jpereira@uga.edu**](mailto:jpereira@uga.edu).
 
@@ -44,21 +44,23 @@ The following are required packages:
 ### Datasets
 
 To reproduce the ICA experiment in the SPM paper, you need to download the ICA dataset at
+
 - [https://bnci-horizon-2020.eu/database/data-sets/013-2015/Subject01_s1.mat](https://bnci-horizon-2020.eu/database/data-sets/013-2015/Subject01_s1.mat)
 
 ## Python
 
 ### Required Packages
 
-  - `numpy`
-  - `scipy`
+- `numpy`
+- `scipy`
 
 ### Optional Package
-  - `numba`: This package provides a just-in-time pre-compiler that can considerably speed up SPM performance. It is used only if the numba package is installed.            
+
+- `numba`: This package provides a just-in-time pre-compiler that can considerably speed up SPM performance. It is used only if the numba package is installed.
   
 ### Installation
 
-To install you just need to copy the python files, and from 
+To install you just need to copy the python files, and from
 `SPM.py`, import the method `subspace_power_method`.
 Additional methods (such as `generate_lowrank_tensor`)
 are also available which can be useful for testing SPM.
