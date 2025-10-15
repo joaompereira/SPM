@@ -1,12 +1,13 @@
 # Subspace power method
 
-An implementation of the subspace power method, in MATLAB and Python,
-for decomposing symmetric tensors, as described in 
+Implementations of the subspace power method and multi SPM, in MATLAB and Python, as described in the papers:
 
-J. Kileel, J. M. Pereira,
+- J. Kileel, J. M. Pereira,
 [**Subspace power method for symmetric tensor
 decomposition**](
-https://arxiv.org/abs/1912.04007), arXiv:1912.04007
+https://doi.org/10.1007/s11075-025-02165-y), Numerical Algorithms, 2025. 
+
+- K. Wang, J. M. Pereira, J. Kileel, A. Seigal, **Multi-subspace power method for decomposing all tensors**, 2025.
 
 ## Matlab
 
