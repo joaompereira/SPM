@@ -2,6 +2,7 @@
 clearvars
 clc
 
+hf = figure;
 Algs = {
     'MSPM' ,@(T, R) MSPM_21sym(T, R);...
     'NLS',@(T,R) tensorlab_nls(T,R);...
@@ -13,7 +14,7 @@ Algs = {
     'QRJ1D', @(T,R) qrj1d(T);... 
     };
 
-data = load("compare_21_nonorthogonal_fix_size.mat");
+data = load("results/compare_21_nonorthogonal_fix_size.mat");
 Ascore = data.Ascore;
 logerror = data.logerror;
 time=data.time;
@@ -38,3 +39,5 @@ legend(h,Algs(:,1))
 xlabel('Log(1-Ascore)');
 ylabel('Log Runtime');
 hold off;
+
+pdfprint('results/compare_21_nonorthogonal_fix_size', hf);

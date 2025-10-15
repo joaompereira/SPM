@@ -2,7 +2,9 @@
 clearvars
 clc
 
-data = load("compare_41_fixed_size_25_10_50.mat");
+hf = figure;
+
+data = load("results/compare_41_fixed_size_25_10_50.mat");
 
 Algs = {
     'MSPM' ,@(T, R) multiSPM(T,'rank',R,'symmetries',[1,1,1,1,2]);...
@@ -37,4 +39,6 @@ legend(h,Algs(:,1))
 xlabel('Log Reconstruction Error');
 ylabel('Log Runtime');
 hold off;
+
+pdfprint('results/compare_41_fixed_size_25_10_50', hf);
 

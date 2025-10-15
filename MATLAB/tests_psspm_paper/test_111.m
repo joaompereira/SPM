@@ -59,7 +59,7 @@ for i=1:nvals
 end
 
 
-filename = 'compare_111_100*3_80';
+filename = 'results/compare_111_100_3_80';
 save(filename, "logerror","factorcos","time")
 
 

@@ -2,6 +2,8 @@
 clearvars
 clc
 
+hf = figure;
+
 Algs = {
     'MSPM' ,@(T, R) MSPM_21sym(T, R);...
     'Jacobi', @(T, R) jacobi(T);...
@@ -15,7 +17,7 @@ Algs = {
     'NLS SVD-init',@(T,R) tensorlab_nls_better_initialization(T,R);
     };
 
-data = load('compare_21_orthogonal_fix_size_100_50_80.mat');
+data = load('results/compare_21_orthogonal_fix_size_100_50_80.mat');
 Ascore = data.Ascore;
 logerror = data.logerror;
 time=data.time;
@@ -42,3 +44,5 @@ legend(h,Algs(:,1))
 xlabel('Log(1-Ascore)');
 ylabel('Log Runtime');
 hold off;
+
+pdfprint('results/compare_21_orthogonal_fix_size_100_50_80', hf);

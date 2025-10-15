@@ -54,6 +54,6 @@ for i=1:nvals
 end
 
 
-filename = 'compare_41_fixed_size_25_10_50';
+filename = 'results/compare_41_fixed_size_25_10_50';
 save(filename, "logerror","factorcos","time")
 

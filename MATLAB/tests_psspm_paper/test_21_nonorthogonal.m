@@ -68,7 +68,7 @@ for i=1:nvals
 end
 
 
-filename = 'compare_21_nonorthogonal_fix_size';
+filename = 'results/compare_21_nonorthogonal_fix_size';
 save(filename, "logerror","Ascore","time")
 
 

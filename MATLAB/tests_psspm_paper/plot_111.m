@@ -2,7 +2,9 @@
 clearvars
 clc
 
-data = load("compare_111_100*3_80.mat");
+hf = figure;
+
+data = load("results/compare_111_100_3_80.mat");
 
 Algs = {
     'MSPM' ,@(T, R) MSPM_asym(T,'rank',R);...
@@ -39,4 +41,6 @@ legend(h,Algs(:,1))
 xlabel('Log Reconstruction Error');
 ylabel('Log Runtime');
 hold off;
+
+pdfprint('results/compare_111_100_3_80', hf);
 
