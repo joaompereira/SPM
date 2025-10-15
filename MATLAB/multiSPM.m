@@ -1,47 +1,82 @@
 function varargout = multiSPM(T, varargin)
-% Decompose symmetric even order tensor using subspace power method
+% multiSPM - Decompose any tensor using the Multi Subspace Power Method
+%
+%   This function calculates the CP decomposition of a symmetric, partial
+%   symmetric, or asymmetric tensor using the Multi Subspace Power Method
+%   (multiSPM). It supports various options for tensor rank estimation, 
+%   symmetry handling, and flattening strategies.
+%
 %   ** Usage **
-%       X = subspace_power_method(T, L, n, R, opts)
-%       [X, lambda] = subspace_power_method(T, L, n, R, opts)
-%       [X, lambda, stat] = subspace_power_method(T, L, n, R, opts)
+%       [lambda, factors, symvec, stat] = multiSPM(T, varargin)
 %
 %   ** INPUT **
-%        T: Tensor of dimension L^n
-%        L: Length of tensor (optional, it can be obtained from T if it has
-%           the correct shape)
-%        n: Tensor order (optional, it can be obtained from T if it has the
-%           correct shape)
-%        R: Tensor rank (optional, it can be estimated using the 
-%           eigenvalues of mat(T))
-%     opts: Various SPM options, given as a struct or Parameter/Value pairs
-%           Options include
-%            ntries: Maximum number of iterations of power method
-%           gradtol: Gradient tolerance (the power method finishes if the
-%                    norm of the gradient is smaller than this value)
-%            eigtol: Tolerance for selecting the rank of T using the
-%                    eigenvalues (when R is not provided)
-%              ftol: If the function value (in the power method) is less
-%                    than this value, then restart x. This is useful when
-%                    rank(T)<L and the first guess for x is almost
-%                    orthogonal to the span of the a_i. Without this check
-%                    the convergence when this happened would be very slow
-%                    
+%        T: Tensor of dimension d_1 x d_2 x ... x d_n
+%     varargin: Optional parameters provided as name-value pairs or a struct:
+%      - 'rank': Tensor rank (optional, can be estimated if not provided).
+%      - 'maxiter': Maximum number of iterations for the power method
+%                  (default: 5000).
+%      - 'ntries': Maximum number of attempts for the power method
+%                  (default: 5).
+%      - 'gradtol': Gradient tolerance for convergence (default: 1e-15).
+%      - 'ranksel': Tolerance for rank selection using singular values
+%                   You may provide a function that takes the flattening
+%                   singular values as input and decides the rank, or set
+%                   it to 'return_sv'. In the last case, multiSPM terminates 
+%                   early and returns the singular values of the first
+%                   flattening. (default: 1e-4). 
+%      - 'ftol': Function value tolerance for restarting the power method
+%                 (default: 1e-2).
+%      - 'flats': Flattenings to be considered for the decomposition. This
+%                 can be provided as a cell array of index vectors, or as a 
+%                 logical matrix where each row indicates a flattening. For
+%                 example, for a tensor T(i,j,k,l), the flattening T(ij,kl)
+%                 can be indicated by [1,1,0,0] or { [1,2], [3,4] }.
+%                 (default: empty, which automatically selects the 
+%                           flattenings that allow the highest rank).
+%       - 'symmetries': Tensor symmetries. You may inform the symmetries of
+%                         the tensor in two ways:
+%                       * As a cell array, where each cell contains the 
+%                         indices of the modes that are symmetric. For 
+%                         example, for a tensor T(i,j,k,l) with symmetries 
+%                         T(i,j,k,l) = T(j,i,k,l), you would provide 
+%                         {[1,2],[3],[4]}.
+%                       * As a vector of length n (tensor order), where the 
+%                         same number indicates symmetry. For example, for 
+%                         the same tensor T(i,j,k,l) with symmetries 
+%                         T(i,j,k,l) = T(j,i,k,l), you would provide [1,1,2,3].
+%                       * As a vector indicating the number of symmetric modes.
+%                         For example, for the same tensor T(i,j,k,l) with 
+%                         symmetries T(i,j,k,l) = T(j,i,k,l), you would provide
+%                         [2,1,1]. This assumes the tensor modes are ordered
+%                         according to their symmetry groups. You may not use 
+%                         this option to describe asymmetric tensors, as the 
+%                         vector [1, 1, ...,1] would clash with the previous 
+%                         option, where it refers to a fully symmetric tensor.
+%                         (default value: 1:n (asymmetric tensor)).
 %
 %   ** OUTPUT **
-%        X: L x R matrix where the columns are the rank decomposition of T
-%           If lambda is also returned the columns of X have norm 1.
-%   lambda: Scaling factors (optional). If not returned, X is scaled
-%           appropriately.
-%     stat: Various statistics of SPM.
+%     lambda: Scaling factors for the decomposition.
+%    factors: Cell array containing the factor matrices of the decomposition.
+%     symvec: Vector indicating the symmetry structure of the tensor.
+%       stat: Struct containing various statistics of the decomposition process:
+%             - extracttime: Time spent on extracting tensor properties.
+%             - powertime: Time spent on the power method.
+%             - deflatetime: Time spent on deflation.
+%             - avgiter: Average number of iterations per rank.
+%             - nrr: Number of restarts during the power method.
+%             - totaltime: Total runtime of the decomposition.
 %
-%   NOTE : Make sure 'helper_functions/' are added to path
-
-% Reference:
-% J. Kileel, J. M. Pereira, Subspace power method for symmetric tensor
-%                           decomposition and generalized PCA
-% https://github.com/joaompereira/SPM
+%   ** NOTE **
+%   - Ensure that the 'helper_functions/' directory is added to the MATLAB path.
+%
+%   ** Reference **
+%   K. Wang, J. M. Pereira, J. Kileel, A. Seigal, "Multi-subspace power method
+%   for decomposing all tensors",
 % 
-% version 1.1 (06/07/2021) - MIT License
+%   https://github.com/joaompereira/SPM
+%
+%   ** Version **
+%   - Version 1.0 (10/15/2025) - MIT License
 
     %% Set options here
     iP = inputParser;
@@ -52,7 +87,6 @@ function varargout = multiSPM(T, varargin)
     addParameter(iP, 'ranksel', 1e-4);
     addParameter(iP,    'ftol', 1e-2, @(x) x>0);
     addParameter(iP,   'flats', []);
-    addParameter(iP, 'svals_only', false);
     addParameter(iP, 'symmetries', []);
     parse(iP, varargin{:});
 
@@ -78,10 +112,13 @@ function varargout = multiSPM(T, varargin)
         end
         nudims = lsym + sum(~symvec);
         symvec(~symvec) = lsym+1:nudims;
-    else
+    elseif length(symmetries) == order
         [vals,~,symvec] = unique(symmetries);
         symvec = symvec';
         nudims = length(vals);
+    else
+        nudims = length(symmetries);
+        symvec = repelem(1:nudims, symmetries);
     end
     
     udims = zeros(1, nudims);
@@ -164,15 +201,8 @@ function varargout = multiSPM(T, varargin)
     end
 
     %% Permute dimensions, to make further calculations easier
-
     dim_order(symorder) = dim_order;
     T = permute(T, dim_order);
-
-    %i_dim_order(dim_order) = 1:order;
-
-    %size(T)
-    %dims(dim_order)
-    %dims(i_dim_order)
 
     dims = dims(dim_order);
 
@@ -398,8 +428,8 @@ error(sprintf(err_msg));
 end
 
 function r = rank_selector(S, rank_sel)
-% Select rank by looking at lues
-eigenva
+% Select rank by looking at singular values
+
     if isa(rank_sel,'function_handle')
         r = rank_sel(S);
     elseif isscalar(rank_sel)

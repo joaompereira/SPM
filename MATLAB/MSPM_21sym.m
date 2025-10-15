@@ -1,49 +1,53 @@
 function [A, B, stat] = MSPM_21sym(T, R, varargin)
-% Decompose symmetric even order tensor using subspace power method
+% MSPM_21sym - Decompose a 3D tensor (m x m x n) symmetric in the first two modes
+%              using the Multi Subspace Power Method (MultiSPM).
+%
+%   This function calculates the CP decomposition of a 3D tensor that is symmetric
+%   in the first two modes, using the Multi Subspace Power Method.
+%
 %   ** Usage **
-%       X = subspace_power_method(T, L, n, R, opts)
-%       [X, lambda] = subspace_power_method(T, L, n, R, opts)
-%       [X, lambda, stat] = subspace_power_method(T, L, n, R, opts)
+%       [A, B, stat] = MSPM_21sym(T, R, varargin)
 %
 %   ** INPUT **
-%        T: Tensor of dimension L^n
-%        L: Length of tensor (optional, it can be obtained from T if it has
-%           the correct shape)
-%        n: Tensor order (optional, it can be obtained from T if it has the
-%           correct shape)
-%        R: Tensor rank (optional, it can be estimated using the 
-%           eigenvalues of mat(T))
-%     opts: Various SPM options, given as a struct or Parameter/Value pairs
-%           Options include
-%            ntries: Maximum number of iterations of power method
-%           gradtol: Gradient tolerance (the power method finishes if the
-%                    norm of the gradient is smaller than this value)
-%            eigtol: Tolerance for selecting the rank of T using the
-%                    eigenvalues (when R is not provided)
-%              ftol: If the function value (in the power method) is less
-%                    than this value, then restart x. This is useful when
-%                    rank(T)<L and the first guess for x is almost
-%                    orthogonal to the span of the a_i. Without this check
-%                    the convergence when this happened would be very slow
-%          adaptive: Flag indicating if using adaptive shifts (depending on
-%                    current function value) or fixed. Defaults to true.
-%                    
+%        T: Tensor of size m x m x n, symmetric in the first two modes.
+%        R: Tensor rank (optional, can be estimated if not provided).
+%     varargin: Optional parameters provided as name-value pairs:
+%         - 'maxiter': Maximum number of iterations for the power method
+%                      (default: 5000).
+%         - 'ntries': Maximum number of attempts for the power method
+%                    (default: 5).
+%         - 'gradtol': Gradient tolerance for convergence (default: 1e-15).
+%         - 'ranksel': Tolerance for rank selection using singular values.
+%                      You may provide a function that takes the singular values
+%                      as input and decides the rank, or set it to 'return_sv'.
+%                      (default: 1e-4).
+%         - 'ftol': Function value tolerance for restarting the power method
+%                  (default: 1e-2).
 %
 %   ** OUTPUT **
-%        X: L x R matrix where the columns are the rank decomposition of T
-%           If lambda is also returned the columns of X have norm 1.
-%   lambda: Scaling factors (optional). If not returned, X is scaled
-%           appropriately.
-%     stat: Various statistics of SPM.
+%        A: Factor matrix corresponding to the first two modes (size m x R).
+%        B: Factor matrix corresponding to the third mode (size n x R).
+%     stat: Struct containing various statistics of the decomposition process:
+%           - extracttime: Time spent on extracting tensor properties.
+%           - powertime: Time spent on the power method.
+%           - deflatetime: Time spent on deflation.
+%           - avgiter: Average number of iterations per rank.
+%           - nrr: Number of restarts during the power method.
+%           - totaltime: Total runtime of the decomposition.
 %
-%   NOTE : Make sure 'helper_functions/' are added to path
+%   ** NOTE **
+%   - This function is specialized for tensors of size m x m x n that are symmetric
+%     in the first two modes. For general tensors, use the standard MultiSPM function.
+%   - Ensure that the required helper functions are added to the MATLAB path.
+%
+%   ** Reference **
+%   K. Wang, J. M. Pereira, J. Kileel, A. Seigal, "Multi-subspace power method
+%   for decomposing all tensors",
 
-% Reference:
-% J. Kileel, J. M. Pereira, Subspace power method for symmetric tensor
-%                           decomposition
-% https://github.com/joaompereira/SPM
-% 
-% version 1.2 (07/17/2024) - MIT License
+%   https://github.com/joaompereira/SPM
+%
+%   ** Version **
+%   - Version 1.0 (10/15/2025) - MIT License
     
     timer = tic;
     
@@ -75,10 +79,13 @@ function [A, B, stat] = MSPM_21sym(T, R, varargin)
     [U, D, V] = svd(T, 'econ');
     D = diag(D);
     
-    % Determine tensor rank by the eigenvalues of mat(T)
+    % Determine tensor rank by the singular values of mat(T)
     if isempty(R)
-        typical = mean(abs(D).^2) / mean(abs(D));
-        R = sum(abs(D) > opts.ranksel * typical);
+        R = rank_selector(D, opts.ranksel);
+        if isempty(R)
+            A = D;
+            return
+        end
     end
     
     D1 = diag(1./D(1:R));
@@ -192,7 +199,22 @@ function [A, B, stat] = MSPM_21sym(T, R, varargin)
 
     stat.avgiter = stat.avgiter/R;
     stat.totaltime = toc(timer);    
-        
+
+end
+
+function r = rank_selector(S, rank_sel)
+% Select rank by looking at singular values
+    if isa(rank_sel,'function_handle')
+        r = rank_sel(S);
+    elseif isscalar(rank_sel)
+        typical = sum(S.^2) / sum(abs(S));
+        r = sum(abs(S) > rank_sel * typical);
+    elseif rank_sel == "return_sv"
+        r = [];
+    else
+        error('Rank selector option not implemented yet')
+    end
+
 end
 
 function A = LHR(A,x)

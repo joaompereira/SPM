@@ -1,49 +1,58 @@
 function [varargout] = MSPM_asym(T, varargin)
-% Decompose symmetric even order tensor using subspace power method
+% MSPM_asym - Decompose an asymmetric tensor using the Multi Subspace Power Method
+%
+%   This function calculates the CP decomposition of an asymmetric tensor 
+%   using the Multi Subspace Power Method (multiSPM). It is a specialized 
+%   version of multiSPM tailored for asymmetric tensors.
+%
 %   ** Usage **
-%       X = subspace_power_method(T, L, n, R, opts)
-%       [X, lambda] = subspace_power_method(T, L, n, R, opts)
-%       [X, lambda, stat] = subspace_power_method(T, L, n, R, opts)
+%       [lambda, factors, stat] = MSPM_asym(T, varargin)
 %
 %   ** INPUT **
-%        T: Tensor of dimension L^n
-%        L: Length of tensor (optional, it can be obtained from T if it has
-%           the correct shape)
-%        n: Tensor order (optional, it can be obtained from T if it has the
-%           correct shape)
-%        R: Tensor rank (optional, it can be estimated using the 
-%           eigenvalues of mat(T))
-%     opts: Various SPM options, given as a struct or Parameter/Value pairs
-%           Options include
-%            ntries: Maximum number of iterations of power method
-%           gradtol: Gradient tolerance (the power method finishes if the
-%                    norm of the gradient is smaller than this value)
-%            eigtol: Tolerance for selecting the rank of T using the
-%                    eigenvalues (when R is not provided)
-%              ftol: If the function value (in the power method) is less
-%                    than this value, then restart x. This is useful when
-%                    rank(T)<L and the first guess for x is almost
-%                    orthogonal to the span of the a_i. Without this check
-%                    the convergence when this happened would be very slow
-%                    
+%        T: Asymmetric tensor of dimension d_1 x d_2 x ... x d_n
+%     varargin: Optional parameters provided as name-value pairs or a struct:
+%         - 'rank': Tensor rank (optional, can be estimated if not provided).
+%         - 'maxiter': Maximum number of iterations for the power method
+%                      (default: 5000).
+%         - 'ntries': Maximum number of attempts for the power method
+%                     (default: 5).
+%         - 'gradtol': Gradient tolerance for convergence (default: 1e-15).
+%         - 'ranksel': Tolerance for rank selection using singular values.
+%                      You may provide a function that takes the singular values
+%                      as input and decides the rank, or set it to 'return_sv'. 
+%                      In the latter case, the function terminates early and returns 
+%                      the singular values of the first flattening. (default: 1e-4). 
+%         - 'ftol': Function value tolerance for restarting the power method
+%                   (default: 1e-2).
+%         - 'flats': Flattenings to be considered for the decomposition. This can be
+%                    provided as a cell array of index vectors, or as a logical matrix
+%                    where each row indicates a flattening. For example, for a tensor
+%                    T(i,j,k,l), the flattening T(ij,kl) can be indicated by [1,1,0,0]
+%                    or { [1,2], [3,4] }. (default: empty, which automatically selects
+%                    the flattenings that allow the highest rank).
 %
 %   ** OUTPUT **
-%        X: L x R matrix where the columns are the rank decomposition of T
-%           If lambda is also returned the columns of X have norm 1.
-%   lambda: Scaling factors (optional). If not returned, X is scaled
-%           appropriately.
-%     stat: Various statistics of SPM.
+%     lambda: Scaling factors for the decomposition.
+%    factors: Cell array containing the factor matrices of the decomposition.
+%       stat: Struct containing various statistics of the decomposition process:
+%             - extracttime: Time spent on extracting tensor properties.
+%             - powertime: Time spent on the power method.
+%             - deflatetime: Time spent on deflation.
+%             - avgiter: Average number of iterations per rank.
+%             - nrr: Number of restarts during the power method.
+%             - totaltime: Total runtime of the decomposition.
 %
-%   NOTE : Make sure 'helper_functions/' are added to path
-
-% Reference:
-% J. Kileel, J. M. Pereira, Subspace power method for symmetric tensor
-%                           decomposition and generalized PCA
-% https://github.com/joaompereira/SPM
+%   ** NOTE **
+%   - Ensure that the 'helper_functions/' directory is added to the MATLAB path.
+%
+%   ** Reference **
+%   K. Wang, J. M. Pereira, J. Kileel, A. Seigal, "Multi-subspace power method
+%   for decomposing all tensors",
 % 
-% version 1.1 (06/07/2021) - MIT License
-
-    import helper_functions.*
+%   https://github.com/joaompereira/SPM
+%
+%   ** Version **
+%   - Version 1.0 (10/15/2025) - MIT License
         
     %% Set options here
     iP = inputParser;
@@ -54,7 +63,6 @@ function [varargout] = MSPM_asym(T, varargin)
     addParameter(iP, 'ranksel', 1e-4);
     addParameter(iP,    'ftol', 1e-2, @(x) x>0);
     addParameter(iP,   'flats', []);
-    addParameter(iP, 'svals_only', false);
     parse(iP, varargin{:});
 
     opts = iP.Results;
@@ -153,21 +161,14 @@ function [varargout] = MSPM_asym(T, varargin)
     for k = r:-1:1
           
         [Aks(1:m1), f] = power_method(U1, Aks(1:m1), k);
-
-        %log10(1+1e-14-f)
-
         
         %% Find right-side vectors by using the second flattening
         if mc>0 && m2 > mc
             Akpow = tensor_product(Aks(1:mc));
             U_half = Akpow' * reshape(U2, length(Akpow), []);
             U_half = reshape(U_half, [], r);
-            [v, ~] = eigs(U_half * U_half', 1, 1+1e-12);%, 1+1e-12
-            %[v, ~] = svds(U_half, 1);
-            %[v, ~] = svds(reshape(U_half, [], r), 1, 1+1e-12);
+            [v, ~] = eigs(U_half * U_half', 1, 1+1e-12);
             [Aks(m1+1:mu), f_c] = power_method(v, Aks(m1+1:mu), 1);
-
-            %log10(1+1e-14-f_c)
 
             if order > mu
                 Akpow = tensor_product(Aks(m1+1:mu));
@@ -175,8 +176,6 @@ function [varargout] = MSPM_asym(T, varargin)
                 U_half = reshape(U_half, [], r);
                 [v, ~] = eigs(U_half * U_half', 1, 1+1e-12);
                 [Aks(mu+1:order), f_c] = power_method(v, Aks(mu+1:order), 1);
-
-                %log10(1+1e-14-f_c)
             end
         else
             Akpow = tensor_product(Aks(mc+1:m1));
@@ -214,13 +213,6 @@ function [varargout] = MSPM_asym(T, varargin)
 
             C = RHR(C,x);
             U1 = RHR(U1,x);
-
-            % x = get_hh_reflector(Calpha);
-
-            % C = LHR(C,x);
-            % V1 = RHR(V1,x);
-
-
 
         end
             
@@ -287,8 +279,7 @@ function [varargout] = MSPM_asym(T, varargin)
 end
 
 function r = rank_selector(S, rank_sel)
-% Select rank by looking at lues
-eigenva
+% Select rank by looking at singular values
     if isa(rank_sel,'function_handle')
         r = rank_sel(S);
     elseif isscalar(rank_sel)
