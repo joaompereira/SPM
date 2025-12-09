@@ -5,8 +5,8 @@ Implementations of the subspace power method and multi SPM, in MATLAB and Python
 - J. Kileel, J. M. Pereira,
 [**Subspace power method for symmetric tensor
 decomposition**](
-https://doi.org/10.1007/s11075-025-02165-y), Numerical Algorithms, 2025.
-- K. Wang, J. M. Pereira, J. Kileel, A. Seigal, **Multi-subspace power method for decomposing all tensors**, 2025.
+https://doi.org/10.1007/s11075-025-02165-y), Numerical Algorithms, 2025. [[preprint]](https://arxiv.org/abs/1912.04007)
+- K. Wang, J. M. Pereira, J. Kileel, A. Seigal, [**Multi-subspace power method for decomposing all tensors**](https://www.arxiv.org/abs/2510.18627), ArXiv preprint, arXiv:2510.18627, 2025.
 
 ## Matlab
 
@@ -27,7 +27,7 @@ After these steps, run the file `MATLAB\tests_spm_paper\run_SPM_paper_tests.m`. 
 
 ### Reproducing results of *Multi-subspace power method for decomposing all tensors*
 
-To reproduce all the results in [*Multi-subspace power method for decomposing all tensors*](), you must first download and install Tensorlab (see below). After that, run the file `MATLAB\tests_mspm_paper\run_MSPM_paper_tests.m`. This will generate the figures in the paper in the `results` folder. If you need assistance setting this up, feel free to open an issue or send an e-mail to [**jpereira@uga.edu**](mailto:jpereira@uga.edu).
+To reproduce all the results in [*Multi-subspace power method for decomposing all tensors*](https://www.arxiv.org/abs/2510.18627), you must first download and install Tensorlab (see below). After that, run the file `MATLAB\tests_mspm_paper\run_MSPM_paper_tests.m`. This will generate the figures in the paper in the `results` folder. If you need assistance setting this up, feel free to open an issue or send an e-mail to [**jpereira@uga.edu**](mailto:jpereira@uga.edu).
 
 ### Required External Packages
 
